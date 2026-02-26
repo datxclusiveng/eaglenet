@@ -12,7 +12,7 @@ async function test() {
     const res = await client.query("SELECT datname FROM pg_database");
     console.log(
       "Databases:",
-      res.rows.map((r) => r.datname),
+      res.rows.map((r: { datname: string }) => r.datname),
     );
     await client.end();
   } catch (err: any) {

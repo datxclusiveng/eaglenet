@@ -82,7 +82,7 @@ const publicFileLimiter = rateLimit({
 });
 app.use("/public", publicFileLimiter);
 
-app.use(hpp());
+app.use(hpp() as any);
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
 
