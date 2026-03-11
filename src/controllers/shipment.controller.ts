@@ -1,14 +1,55 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../../database/data-source";
 import { Shipment, ShipmentStatus } from "../entities/Shipment";
+import { Service } from "../entities/Service";
+import { Location } from "../entities/Location";
+import { Tracking } from "../entities/Tracking";
 import { User } from "../entities/User";
 import { generateEglId, paginate, parsePagination } from "../utils/helpers";
 import {
   sendBookingConfirmationEmail,
   sendStatusUpdateEmail,
+  sendPriceQuoteEmail,
 } from "../services/email.service";
 
 const repo = () => AppDataSource.getRepository(Shipment);
+const trackingRepo = () => AppDataSource.getRepository(Tracking);
+const serviceRepo = () => AppDataSource.getRepository(Service);
+const locationRepo = () => AppDataSource.getRepository(Location);
+
+// ─── Public: Get Services & Locations ───────────────────────────────────────
+export async function getServices(_req: Request, res: Response) {
+  try {
+    const services = await serviceRepo().find({
+      order: { serviceName: "ASC" },
+    });
+    return res.status(200).json({ status: "success", data: services });
+  } catch (err) {
+    console.error("[ShipmentController.getServices]", err);
+    return res
+      .status(500)
+      .json({ status: "error", message: "Error fetching services." });
+  }
+}
+
+export async function getLocations(req: Request, res: Response) {
+  try {
+    const type = req.query.type as string; // AIRPORT or SEAPORT
+    const query = locationRepo()
+      .createQueryBuilder("l")
+      .orderBy("l.name", "ASC");
+    if (type) {
+      query.where("l.type = :type", { type: type.toUpperCase() });
+    }
+    const locations = await query.getMany();
+    return res.status(200).json({ status: "success", data: locations });
+  } catch (err) {
+    console.error("[ShipmentController.getLocations]", err);
+    return res
+      .status(500)
+      .json({ status: "error", message: "Error fetching locations." });
+  }
+}
 
 // ─── Customer: Create a booking ───────────────────────────────────────────────
 
@@ -16,6 +57,10 @@ export async function createShipment(req: Request, res: Response) {
   try {
     const user = (req as any).user as User;
     const {
+      serviceId,
+      origin,
+      destination,
+      arrivalDate,
       fullName,
       email,
       phoneNumber,
@@ -26,19 +71,15 @@ export async function createShipment(req: Request, res: Response) {
       preferredPickupDate,
       preferredPickupTime,
       specialRequirements,
-      amount,
     } = req.body;
 
     const required = [
+      "serviceId",
+      "origin",
+      "destination",
       "fullName",
       "email",
       "phoneNumber",
-      "pickupAddress",
-      "pickupCity",
-      "deliveryAddress",
-      "destinationCity",
-      "preferredPickupDate",
-      "preferredPickupTime",
     ];
 
     const missing = required.filter((k) => !req.body[k]);
@@ -49,41 +90,69 @@ export async function createShipment(req: Request, res: Response) {
       });
     }
 
+    const service = await serviceRepo().findOneBy({ id: serviceId });
+    if (!service) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Service not found." });
+    }
+
     const shipment = repo().create({
       shippingId: generateEglId("SHIP"),
-      trackingId: generateEglId("TRK"),
+      trackingId: `EGLN${Math.floor(10000000 + Math.random() * 90000000)}`, // EGLN12345678 format
       fullName: fullName.trim(),
       email: email.toLowerCase().trim(),
       phoneNumber: phoneNumber.trim(),
-      pickupAddress: pickupAddress.trim(),
-      pickupCity: pickupCity.trim(),
-      deliveryAddress: deliveryAddress.trim(),
-      destinationCity: destinationCity.trim(),
-      preferredPickupDate,
-      preferredPickupTime,
+      pickupAddress: pickupAddress?.trim() || origin,
+      pickupCity: pickupCity?.trim() || origin,
+      deliveryAddress: deliveryAddress?.trim() || destination,
+      destinationCity: destinationCity?.trim() || destination,
+      preferredPickupDate:
+        preferredPickupDate || new Date().toISOString().split("T")[0],
+      preferredPickupTime: preferredPickupTime || "",
       specialRequirements: specialRequirements || null,
       status: ShipmentStatus.PENDING,
-      amount: amount ? Number(amount) : 0,
+      amount: 0, // Price updated by admin later
+      serviceId: service.id,
+      origin,
+      destination,
+      arrivalDate,
       userId: user?.id || undefined,
     });
 
     await repo().save(shipment);
 
+    // Initial Tracking Checkpoint
+    const tracking = trackingRepo().create({
+      shipmentId: shipment.id,
+      checkpoint: "Pickup Confirmed",
+      location: origin,
+      status: ShipmentStatus.PENDING,
+      date: new Date(),
+    });
+    await trackingRepo().save(tracking);
+
     // Notification email
+    const estimatedArrivalDate = arrivalDate || "To be confirmed";
     sendBookingConfirmationEmail(shipment.email, {
       fullName: shipment.fullName,
       shippingId: shipment.shippingId,
       trackingId: shipment.trackingId,
-      pickupCity: shipment.pickupCity,
-      destinationCity: shipment.destinationCity,
-      preferredPickupDate: shipment.preferredPickupDate,
+      serviceName: service.serviceName,
+      origin: shipment.origin || shipment.pickupCity,
+      destination: shipment.destination || shipment.destinationCity,
+      arrivalDate: estimatedArrivalDate,
       amount: shipment.amount,
     }).catch(console.error);
 
     return res.status(201).json({
       status: "success",
       message: "Shipment booked successfully.",
-      data: shipment,
+      data: {
+        ...shipment,
+        trackingId: shipment.trackingId,
+      },
+      trackingId: shipment.trackingId, // Explicitly return this for the frontend
     });
   } catch (err) {
     console.error("[ShipmentController.createShipment]", err);
@@ -104,6 +173,7 @@ export async function myShipments(req: Request, res: Response) {
 
     const qb = repo()
       .createQueryBuilder("s")
+      .leftJoinAndSelect("s.service", "service")
       .where("s.userId = :uid", { uid: user.id });
 
     if (status && Object.values(ShipmentStatus).includes(status)) {
@@ -137,12 +207,22 @@ export async function myShipments(req: Request, res: Response) {
 export async function trackShipment(req: Request, res: Response) {
   try {
     const { trackingId } = req.params;
-    const shipment = await repo().findOne({ where: { trackingId } });
+    const shipment = await repo().findOne({
+      where: { trackingId },
+      relations: ["trackingUpdates", "service", "payments"],
+    });
 
     if (!shipment) {
       return res
         .status(404)
         .json({ status: "error", message: "Shipment not found." });
+    }
+
+    // Sort tracking updates chronologically
+    if (shipment.trackingUpdates) {
+      shipment.trackingUpdates.sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
     }
 
     return res.status(200).json({ status: "success", data: shipment });
@@ -163,7 +243,7 @@ export async function getShipment(req: Request, res: Response) {
 
     const shipment = await repo().findOne({
       where: { id },
-      relations: ["user"],
+      relations: ["user", "service", "trackingUpdates", "payments"],
     });
 
     if (!shipment) {
@@ -180,6 +260,52 @@ export async function getShipment(req: Request, res: Response) {
     return res.status(200).json({ status: "success", data: shipment });
   } catch (err) {
     console.error("[ShipmentController.getShipment]", err);
+    return res
+      .status(500)
+      .json({ status: "error", message: "Internal server error." });
+  }
+}
+
+// ─── Admin: Assign Price after Inspection ────────────────────────────────────
+
+export async function assignShipmentPrice(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { amount } = req.body;
+
+    if (amount === undefined || amount < 0) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Valid amount is required." });
+    }
+
+    const shipment = await repo().findOne({
+      where: { id },
+      relations: ["user"],
+    });
+    if (!shipment)
+      return res
+        .status(404)
+        .json({ status: "error", message: "Shipment not found." });
+
+    shipment.amount = Number(amount);
+    shipment.status = ShipmentStatus.PROCESSING; // Move to processing after inspection/pricing
+    await repo().save(shipment);
+
+    // Notify user about the price
+    sendPriceQuoteEmail(shipment.email, {
+      fullName: shipment.fullName,
+      trackingId: shipment.trackingId,
+      amount: shipment.amount,
+    }).catch(console.error);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Price assigned and user notified.",
+      data: shipment,
+    });
+  } catch (err) {
+    console.error("[ShipmentController.assignShipmentPrice]", err);
     return res
       .status(500)
       .json({ status: "error", message: "Internal server error." });
@@ -280,6 +406,82 @@ export async function updateShipmentStatus(req: Request, res: Response) {
     });
   } catch (err) {
     console.error("[ShipmentController.updateShipmentStatus]", err);
+    return res
+      .status(500)
+      .json({ status: "error", message: "Internal server error." });
+  }
+}
+
+// ─── Admin: Add Tracking Checkpoint ──────────────────────────────────────────
+
+export async function addTrackingCheckpoint(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { checkpoint, location, status } = req.body;
+
+    if (
+      !checkpoint ||
+      !status ||
+      !Object.values(ShipmentStatus).includes(status)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: `Missing checkpoint or invalid status. Expected one of: ${Object.values(ShipmentStatus).join(", ")}`,
+      });
+    }
+
+    const shipment = await repo().findOne({
+      where: { id },
+      relations: ["user"],
+    });
+
+    if (!shipment) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Shipment not found." });
+    }
+
+    // Creating the checkpoint
+    const tracking = trackingRepo().create({
+      shipmentId: shipment.id,
+      checkpoint,
+      location,
+      status,
+      date: new Date(),
+    });
+
+    await trackingRepo().save(tracking);
+
+    // Update parent shipment status to reflect the new checkpoint
+    shipment.status = status;
+    await repo().save(shipment);
+
+    // Send notifications to User & Admin if it's Arrival or Delivery
+    if (
+      status === ShipmentStatus.ARRIVED ||
+      status === ShipmentStatus.DELIVERED
+    ) {
+      sendStatusUpdateEmail(shipment.email, {
+        fullName: shipment.fullName,
+        trackingId: shipment.trackingId,
+        status: shipment.status,
+        pickupCity: shipment.pickupCity,
+        destinationCity: shipment.destinationCity,
+      }).catch(console.error);
+
+      // We can also send Admin notification here. For brevity, simulating SMS notification:
+      console.log(
+        `[SMS Simulation] To: ${shipment.phoneNumber} - Your shipment ${shipment.trackingId} has arrived at the destination terminal. Thank you for using EagleNet Logistics.`,
+      );
+    }
+
+    return res.status(201).json({
+      status: "success",
+      message: "Tracking checkpoint added and shipment status updated.",
+      data: tracking,
+    });
+  } catch (err) {
+    console.error("[ShipmentController.addTrackingCheckpoint]", err);
     return res
       .status(500)
       .json({ status: "error", message: "Internal server error." });

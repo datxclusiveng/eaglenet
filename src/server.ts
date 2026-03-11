@@ -21,6 +21,7 @@ import userRoutes from "./routes/user.routes";
 import shipmentRoutes from "./routes/shipment.routes";
 import paymentRoutes from "./routes/payment.routes";
 import adminRoutes from "./routes/admin.routes";
+import serviceRoutes from "./routes/service.routes";
 
 // Load environment variables
 dotenv.config();
@@ -132,6 +133,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/shipments", shipmentRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/services", serviceRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {

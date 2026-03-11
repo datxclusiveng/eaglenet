@@ -176,13 +176,46 @@ export async function getUser(req: Request, res: Response) {
         .status(404)
         .json({ status: "error", message: "User not found." });
 
-    const totalBookings = await AppDataSource.getRepository(Shipment).count({
-      where: { userId },
-    });
+    const shipmentRepo = AppDataSource.getRepository(Shipment);
+    const paymentRepo = AppDataSource.getRepository(Payment);
+
+    // Get statistics
+    const [totalBookings, totalSpentResult] = await Promise.all([
+      shipmentRepo.count({ where: { userId } }),
+      paymentRepo
+        .createQueryBuilder("p")
+        .select("SUM(p.amount)", "total")
+        .where("p.userId = :userId AND p.status = 'SUCCESS'", { userId })
+        .getRawOne(),
+    ]);
+
+    // Get recent activities
+    const [recentShipments, recentPayments] = await Promise.all([
+      shipmentRepo.find({
+        where: { userId },
+        relations: ["service"],
+        order: { createdAt: "DESC" },
+        take: 10,
+      }),
+      paymentRepo.find({
+        where: { userId },
+        order: { createdAt: "DESC" },
+        take: 10,
+      }),
+    ]);
 
     return res.status(200).json({
       status: "success",
-      data: { ...sanitize(user), totalBookings },
+      data: {
+        ...sanitize(user),
+        stats: {
+          totalBookings,
+          totalSpent: Number(totalSpentResult?.total || 0),
+          outstandingBalance: Number(user.outstandingBalance),
+        },
+        recentShipments,
+        recentPayments,
+      },
     });
   } catch (err) {
     console.error("[UserController.getUser]", err);

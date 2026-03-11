@@ -160,27 +160,50 @@ export async function sendBookingConfirmationEmail(
     fullName: string;
     shippingId: string;
     trackingId: string;
-    pickupCity: string;
-    destinationCity: string;
-    preferredPickupDate: string;
+    serviceName: string;
+    origin: string;
+    destination: string;
+    arrivalDate: string;
     amount: string | number;
   },
 ) {
   await send({
     to,
-    subject: `Booking Confirmed – ${data.shippingId}`,
+    subject: `Shipment Booking Confirmation`,
     html: base(`
-      <h2>Booking Confirmed ✅</h2>
-      <p>Hi <strong>${data.fullName}</strong>, your shipment has been booked successfully.</p>
+      <h2>Your shipment has been successfully booked.</h2>
+      <p>Hi <strong>${data.fullName}</strong>, your shipment has been successfully booked.</p>
       <table class="info-table">
-        <tr><td>Shipping ID</td><td>${data.shippingId}</td></tr>
+        <tr><td>Service</td><td>${data.serviceName}</td></tr>
         <tr><td>Tracking ID</td><td>${data.trackingId}</td></tr>
-        <tr><td>From</td><td>${data.pickupCity}</td></tr>
-        <tr><td>To</td><td>${data.destinationCity}</td></tr>
-        <tr><td>Pickup Date</td><td>${data.preferredPickupDate}</td></tr>
+        <tr><td>Origin</td><td>${data.origin}</td></tr>
+        <tr><td>Destination</td><td>${data.destination}</td></tr>
+        <tr><td>Estimated Arrival Date</td><td>${data.arrivalDate}</td></tr>
         <tr><td>Amount</td><td>₦${Number(data.amount).toLocaleString()}</td></tr>
       </table>
-      <p>You will receive further updates as your shipment progresses.</p>`),
+      <p>You can use your tracking ID on the Track Shipment Page to monitor your shipment.</p>`),
+  });
+}
+
+export async function sendPriceQuoteEmail(
+  to: string,
+  data: {
+    fullName: string;
+    trackingId: string;
+    amount: number;
+  },
+) {
+  await send({
+    to,
+    subject: `Inspection Complete - Price Quote for ${data.trackingId}`,
+    html: base(`
+      <h2>Inspection Complete 📋</h2>
+      <p>Hi <strong>${data.fullName}</strong>,</p>
+      <p>We have completed the inspection of your shipment <strong>${data.trackingId}</strong>.</p>
+      <p>The total cost for this service is: <strong>₦${Number(data.amount).toLocaleString()}</strong></p>
+      <p>Please log in to your dashboard to proceed with the payment.</p>
+      <a href="#" class="btn">View Shipment Details</a>
+    `),
   });
 }
 
@@ -196,7 +219,9 @@ export async function sendStatusUpdateEmail(
 ) {
   const statusMap: Record<string, string> = {
     PENDING: "badge-pending",
+    PROCESSING: "badge-pending",
     TRANSIT: "badge-transit",
+    ARRIVED: "badge-success",
     DELIVERED: "badge-delivered",
     DELAY: "badge-delay",
   };

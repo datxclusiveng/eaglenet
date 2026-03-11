@@ -6,10 +6,26 @@ import {
   getShipment,
   listShipments,
   updateShipmentStatus,
+  getServices,
+  getLocations,
+  addTrackingCheckpoint,
+  assignShipmentPrice,
 } from "../controllers/shipment.controller";
 import { auth, adminOnly } from "../middleware/auth.middleware";
 
 const router = Router();
+
+/**
+ * PUBLIC: Get all services
+ * GET /api/shipments/services
+ */
+router.get("/services", getServices);
+
+/**
+ * PUBLIC: Get all locations (Airports/Seaports)
+ * GET /api/shipments/locations
+ */
+router.get("/locations", getLocations);
 
 /**
  * PUBLIC: Track a shipment by tracking ID
@@ -49,5 +65,19 @@ router.get("/", ...adminOnly, listShipments);
  * Body: { status, packageDetails?, weight? }
  */
 router.patch("/:id/status", ...adminOnly, updateShipmentStatus);
+
+/**
+ * Admin: Add tracking checkpoint to a shipment
+ * POST /api/shipments/:id/tracking
+ * Body: { checkpoint, location, status }
+ */
+router.post("/:id/tracking", ...adminOnly, addTrackingCheckpoint);
+
+/**
+ * Admin: Assign price to shipment
+ * PATCH /api/shipments/:id/price
+ * Body: { amount }
+ */
+router.patch("/:id/price", ...adminOnly, assignShipmentPrice);
 
 export default router;

@@ -6,12 +6,18 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from "typeorm";
 import { User } from "./User";
+import { Service } from "./Service";
+import { Tracking } from "./Tracking";
+import { Payment } from "./Payment";
 
 export enum ShipmentStatus {
   PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
   TRANSIT = "TRANSIT",
+  ARRIVED = "ARRIVED",
   DELAY = "DELAY",
   DELIVERED = "DELIVERED",
 }
@@ -97,4 +103,27 @@ export class Shipment {
 
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt!: Date;
+
+  // ── Service & Routing details ──
+  @Column({ name: "service_id", nullable: true })
+  serviceId?: string;
+
+  @ManyToOne(() => Service, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "service_id" })
+  service?: Service;
+
+  @Column({ nullable: true })
+  origin?: string;
+
+  @Column({ nullable: true })
+  destination?: string;
+
+  @Column({ name: "arrival_date", type: "date", nullable: true })
+  arrivalDate?: string;
+
+  @OneToMany(() => Tracking, (tracking) => tracking.shipment)
+  trackingUpdates!: Tracking[];
+
+  @OneToMany(() => Payment, (payment) => payment.shipment)
+  payments!: Payment[];
 }

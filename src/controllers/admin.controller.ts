@@ -27,12 +27,16 @@ export async function getDashboardStats(_req: Request, res: Response) {
 
     const statusMap: Record<string, number> = {
       PENDING: 0,
+      PROCESSING: 0,
       TRANSIT: 0,
+      ARRIVED: 0,
       DELAY: 0,
       DELIVERED: 0,
     };
     for (const row of statusCounts) {
-      statusMap[row.status] = Number(row.count);
+      if (statusMap[row.status] !== undefined) {
+        statusMap[row.status] = Number(row.count);
+      }
     }
 
     // Revenue
@@ -49,6 +53,8 @@ export async function getDashboardStats(_req: Request, res: Response) {
         totalOrders,
         inTransit: statusMap[ShipmentStatus.TRANSIT],
         pending: statusMap[ShipmentStatus.PENDING],
+        processing: statusMap[ShipmentStatus.PROCESSING],
+        arrived: statusMap[ShipmentStatus.ARRIVED],
         delivered: statusMap[ShipmentStatus.DELIVERED],
         delayed: statusMap[ShipmentStatus.DELAY],
         totalRevenue: Number(revenueResult.totalRevenue),
@@ -60,9 +66,19 @@ export async function getDashboardStats(_req: Request, res: Response) {
             color: "#f59e0b",
           },
           {
+            label: "Processing",
+            value: statusMap[ShipmentStatus.PROCESSING],
+            color: "#3b82f6", // Adjust colors later if needed
+          },
+          {
             label: "In Transit",
             value: statusMap[ShipmentStatus.TRANSIT],
-            color: "#3b82f6",
+            color: "#6366f1",
+          },
+          {
+            label: "Arrived",
+            value: statusMap[ShipmentStatus.ARRIVED],
+            color: "#14b8a6",
           },
           {
             label: "Delivered",
