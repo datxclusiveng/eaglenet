@@ -43,6 +43,7 @@ router.get("/verify/:reference", ...auth, verifyPayment);
  */
 router.get("/mine", ...auth, myPayments);
 
+
 /**
  * Admin: All payments
  * GET /api/payments
