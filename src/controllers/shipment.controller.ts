@@ -174,6 +174,7 @@ export async function myShipments(req: Request, res: Response) {
     const qb = repo()
       .createQueryBuilder("s")
       .leftJoinAndSelect("s.service", "service")
+      .leftJoinAndSelect("s.payments", "payments")
       .where("s.userId = :uid", { uid: user.id });
 
     if (status && Object.values(ShipmentStatus).includes(status)) {
@@ -323,7 +324,10 @@ export async function listShipments(req: Request, res: Response) {
     const from = req.query.from as string | undefined;
     const to = req.query.to as string | undefined;
 
-    const qb = repo().createQueryBuilder("s").leftJoinAndSelect("s.user", "u");
+    const qb = repo()
+      .createQueryBuilder("s")
+      .leftJoinAndSelect("s.user", "u")
+      .leftJoinAndSelect("s.payments", "p");
 
     if (status && Object.values(ShipmentStatus).includes(status)) {
       qb.andWhere("s.status = :status", { status });

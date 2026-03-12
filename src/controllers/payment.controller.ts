@@ -45,6 +45,8 @@ export async function initializePayment(req: Request, res: Response) {
     const amountInKobo = Math.round(Number(amount) * 100);
 
     // Hit Paystack initialize endpoint
+    const callback_url = `${process.env.FRONTEND_URL}/customer-dashboard/shipments`;
+
     const paystackRes = await paystackRequest<{
       authorization_url: string;
       access_code: string;
@@ -53,6 +55,7 @@ export async function initializePayment(req: Request, res: Response) {
       email: user.email,
       amount: amountInKobo,
       reference,
+      callback_url,
       metadata: {
         shipmentId,
         userId: user.id,
