@@ -14,12 +14,13 @@ import { Tracking } from "./Tracking";
 import { Payment } from "./Payment";
 
 export enum ShipmentStatus {
-  PENDING = "PENDING",
-  PROCESSING = "PROCESSING",
-  TRANSIT = "TRANSIT",
-  ARRIVED = "ARRIVED",
-  DELAY = "DELAY",
+  ORDER_PLACED = "ORDER_PLACED",
+  PENDING_CONFIRMATION = "PENDING_CONFIRMATION",
+  WAITING_TO_BE_SHIPPED = "WAITING_TO_BE_SHIPPED",
+  SHIPPED = "SHIPPED",
+  AVAILABLE_FOR_PICKUP = "AVAILABLE_FOR_PICKUP",
   DELIVERED = "DELIVERED",
+  CANCELLED = "CANCELLED",
 }
 
 @Entity("shipments")
@@ -82,7 +83,7 @@ export class Shipment {
   @Column({
     type: "enum",
     enum: ShipmentStatus,
-    default: ShipmentStatus.PENDING,
+    default: ShipmentStatus.ORDER_PLACED,
   })
   status!: ShipmentStatus;
 

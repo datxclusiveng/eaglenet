@@ -14,7 +14,7 @@ const repo = () => AppDataSource.getRepository(Payment);
 export async function initializePayment(req: Request, res: Response) {
   try {
     const user = (req as any).user as User;
-    const { shipmentId, amount } = req.body;
+    const { shipmentId, amount, callbackUrl } = req.body;
 
     if (!shipmentId || !amount) {
       return res
@@ -45,7 +45,8 @@ export async function initializePayment(req: Request, res: Response) {
     const amountInKobo = Math.round(Number(amount) * 100);
 
     // Hit Paystack initialize endpoint
-    const callback_url = `${process.env.FRONTEND_URL}/customer-dashboard/shipments`;
+    // Use dynamic callbackUrl if provided by frontend, else fallback
+    const callback_url = callbackUrl || `${process.env.FRONTEND_URL}/customer-dashboard/shipments`;
 
     const paystackRes = await paystackRequest<{
       authorization_url: string;
