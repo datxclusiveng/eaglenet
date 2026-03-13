@@ -21,9 +21,8 @@ const BRAND = "EagleNet Logistics";
 
 // Resend Config
 const resend = new Resend(process.env.RESEND_API_KEY);
-// For Resend unverified domains, 'from' MUST be exactly 'onboarding@resend.dev'
-// or 'Name <onboarding@resend.dev>'
-const RESEND_FROM = getEnv("RESEND_FROM", "onboarding@resend.dev");
+const MAIL_FROM = getEnv("MAIL_FROM", getEnv("RESEND_FROM", "onboarding@resend.dev"));
+const RESEND_FROM = MAIL_FROM;
 
 // SMTP Config (Fallback/Alternative)
 const smtpTransporter = process.env.SMTP_HOST

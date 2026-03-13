@@ -169,9 +169,8 @@ export class MailService {
 
     if (this.provider === "resend") {
       if (!this.resend) throw new Error("Resend not initialized");
-      const resendFrom = getEnv("RESEND_FROM", "onboarding@resend.dev");
       await this.resend.emails.send({
-        from: resendFrom,
+        from,
         to: opts.to,
         subject: opts.subject,
         html: opts.html || "",
