@@ -217,12 +217,13 @@ export async function sendStatusUpdateEmail(
   },
 ) {
   const statusMap: Record<string, string> = {
-    PENDING: "badge-pending",
-    PROCESSING: "badge-pending",
-    TRANSIT: "badge-transit",
-    ARRIVED: "badge-success",
+    ORDER_PLACED: "badge-pending",
+    PENDING_CONFIRMATION: "badge-pending",
+    WAITING_TO_BE_SHIPPED: "badge-transit",
+    SHIPPED: "badge-transit",
+    AVAILABLE_FOR_PICKUP: "badge-success",
     DELIVERED: "badge-delivered",
-    DELAY: "badge-delay",
+    CANCELLED: "badge-delay",
   };
   await send({
     to,
