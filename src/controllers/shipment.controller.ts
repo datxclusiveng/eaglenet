@@ -111,7 +111,7 @@ export async function createShipment(req: Request, res: Response) {
         preferredPickupDate || new Date().toISOString().split("T")[0],
       preferredPickupTime: preferredPickupTime || "",
       specialRequirements: specialRequirements || null,
-      status: ShipmentStatus.PENDING,
+      status: ShipmentStatus.ORDER_PLACED,
       amount: 0, // Price updated by admin later
       serviceId: service.id,
       origin,
@@ -125,9 +125,9 @@ export async function createShipment(req: Request, res: Response) {
     // Initial Tracking Checkpoint
     const tracking = trackingRepo().create({
       shipmentId: shipment.id,
-      checkpoint: "Pickup Confirmed",
+      checkpoint: "Order Received & Awaiting Review",
       location: origin,
-      status: ShipmentStatus.PENDING,
+      status: ShipmentStatus.ORDER_PLACED,
       date: new Date(),
     });
     await trackingRepo().save(tracking);
@@ -290,7 +290,7 @@ export async function assignShipmentPrice(req: Request, res: Response) {
         .json({ status: "error", message: "Shipment not found." });
 
     shipment.amount = Number(amount);
-    shipment.status = ShipmentStatus.PROCESSING; // Move to processing after inspection/pricing
+    shipment.status = ShipmentStatus.PENDING_CONFIRMATION; // Move to confirmation after inspection/pricing
     await repo().save(shipment);
 
     // Notify user about the price
@@ -462,7 +462,7 @@ export async function addTrackingCheckpoint(req: Request, res: Response) {
 
     // Send notifications to User & Admin if it's Arrival or Delivery
     if (
-      status === ShipmentStatus.ARRIVED ||
+      status === ShipmentStatus.AVAILABLE_FOR_PICKUP ||
       status === ShipmentStatus.DELIVERED
     ) {
       sendStatusUpdateEmail(shipment.email, {
