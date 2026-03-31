@@ -25,7 +25,7 @@ export const AppDataSource = new DataSource({
   // Automatically run migrations if RUN_MIGRATIONS=true
   migrationsRun: process.env.RUN_MIGRATIONS === "true",
   // Entities / migrations depending on environment
-  entities: isProd ? ["dist/src/entities/**/*.js"] : ["src/entities/**/*.ts"],
+  entities: isProd ? ["dist/src/modules/**/entities/*.js", "dist/src/entities/**/*.js"] : ["src/modules/**/entities/*.ts", "src/entities/**/*.ts"],
   migrations: isProd ? ["dist/src/migrations/**/*.js"] : ["src/migrations/**/*.ts"],
   subscribers: isProd ? ["dist/src/subscribers/**/*.js"] : ["src/subscribers/**/*.ts"],
   // SSL for production when using a DATABASE_URL (adjust via env var DATABASE_SSL=true)

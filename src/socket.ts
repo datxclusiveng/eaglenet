@@ -2,7 +2,7 @@ import { Server as HTTPServer } from "http";
 import { Server as IOServer, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { AppDataSource } from "../database/data-source";
-import { User } from "./entities/User";
+import { User } from "./modules/users/entities/User";
 
 let io: IOServer | null = null;
 

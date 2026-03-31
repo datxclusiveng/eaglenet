@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { AppDataSource } from "../../database/data-source";
-import { User, UserRole } from "../entities/User";
+import { User, UserRole } from "../modules/users/entities/User";
 
 export interface AuthRequest extends Request {
   user?: User;

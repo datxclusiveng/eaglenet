@@ -15,13 +15,19 @@ import multer from "multer";
 
 import { startKeepAliveJob } from "./jobs/keepAlive";
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-import authRoutes from "./routes/auth.routes";
-import userRoutes from "./routes/user.routes";
-import shipmentRoutes from "./routes/shipment.routes";
-import paymentRoutes from "./routes/payment.routes";
-import adminRoutes from "./routes/admin.routes";
-import serviceRoutes from "./routes/service.routes";
+// ── Modules ───────────────────────────────────────────────────────────────────
+import authRoutes from "./modules/auth/routes/auth.routes";
+import userRoutes from "./modules/users/routes/user.routes";
+import shipmentRoutes from "./modules/shipments/routes/shipment.routes";
+import paymentRoutes from "./modules/financial/routes/payment.routes";
+import invoiceRoutes from "./modules/financial/routes/invoice.routes";
+import workflowRoutes from "./modules/workflow/routes/workflow.routes";
+import auditRoutes from "./modules/audit/routes/audit.routes";
+import searchRoutes from "./modules/search/routes/search.routes";
+import adminRoutes from "./modules/auth/routes/admin.routes";
+import serviceRoutes from "./modules/shipments/routes/service.routes";
+import departmentRoutes from "./modules/departments/routes/department.routes";
+import documentRoutes from "./modules/documents/routes/document.routes";
 
 // Load environment variables
 dotenv.config();
@@ -132,8 +138,14 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/shipments", shipmentRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/invoices", invoiceRoutes);
+app.use("/api/workflows", workflowRoutes);
+app.use("/api/audit", auditRoutes);
+app.use("/api/search", searchRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/services", serviceRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/documents", documentRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
