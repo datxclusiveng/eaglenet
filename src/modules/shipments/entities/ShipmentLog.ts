@@ -2,6 +2,11 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDa
 import { User } from "../../users/entities/User";
 import { Shipment } from "./Shipment";
 
+export enum LogVisibility {
+  PUBLIC = "public",
+  INTERNAL = "internal",
+}
+
 @Entity("shipment_logs")
 export class ShipmentLog {
   @PrimaryGeneratedColumn("uuid")
@@ -15,19 +20,36 @@ export class ShipmentLog {
   shipment!: Shipment;
 
   @Column({ name: "user_id", nullable: true })
-  userId?: string;
+  changedById?: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
   @JoinColumn({ name: "user_id" })
-  user?: User;
+  changedBy?: User;
 
-  @Column()
-  action!: string; // e.g., "created", "status_updated", "price_assigned", "department_assigned"
+  @Column({ nullable: true })
+  action!: string; // e.g., "status_change", "creation", "update"
 
-  /**
-   * Detail about the action taken.
-   * Example: { "old_status": "ORDER_PLACED", "new_status": "SHIPPED", "comment": "Package is on the move" }
-   */
+  @Column({ name: "previous_status", nullable: true })
+  previousStatus?: string;
+
+  @Column({ name: "new_status", nullable: true })
+  newStatus?: string;
+
+  @Column({ type: "text", nullable: true })
+  note?: string;
+
+  @Column({ name: "email_sent", default: false })
+  emailSent!: boolean;
+
+  @Column({ type: "enum", enum: LogVisibility, default: LogVisibility.INTERNAL })
+  visibility!: LogVisibility;
+
+  @Column({ name: "ip_address", nullable: true })
+  ipAddress?: string;
+
+  @Column({ name: "user_agent", nullable: true })
+  userAgent?: string;
+
   @Column({ type: "jsonb", nullable: true, default: {} })
   metadata?: Record<string, any>;
 

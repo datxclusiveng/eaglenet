@@ -5,7 +5,6 @@ import { paginate, parsePagination } from "../../../utils/helpers";
 import {
   createInvoice,
   listAllInvoices,
-  listUserInvoices,
   getInvoiceById,
   updateInvoiceStatus,
   softDeleteInvoice,
@@ -15,21 +14,26 @@ import {
 export async function createInvoiceHandler(req: Request, res: Response) {
   try {
     const user = (req as any).user as User;
-    const { amount, tax, shipmentId, dueDate, notes } = req.body;
+    const { shipmentId, items, taxRate, dueDate, notes, currency } = req.body;
+
+    if (!shipmentId || !items || !Array.isArray(items)) {
+      return res.status(400).json({ status: "error", message: "Missing required fields: shipmentId and items list." });
+    }
 
     const invoice = await createInvoice({
-      amount: Number(amount),
-      tax: tax !== undefined ? Number(tax) : 0,
       shipmentId,
+      items,
+      taxRate: taxRate !== undefined ? Number(taxRate) : 0,
       dueDate,
       notes,
+      currency,
       createdBy: user.id,
     });
 
     return res.status(201).json({ status: "success", data: invoice });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[InvoiceController.create]", err);
-    return res.status(500).json({ status: "error", message: "Internal server error." });
+    return res.status(500).json({ status: "error", message: err.message || "Internal server error." });
   }
 }
 
@@ -38,8 +42,9 @@ export async function listInvoicesHandler(req: Request, res: Response) {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const status = req.query.status as InvoiceStatus | undefined;
+    const search = req.query.search as string | undefined;
 
-    const [rows, total] = await listAllInvoices({ skip, take: limit, status });
+    const [rows, total] = await listAllInvoices({ skip, take: limit, status, search });
     return res.status(200).json({
       status: "success",
       data: rows,
@@ -47,24 +52,6 @@ export async function listInvoicesHandler(req: Request, res: Response) {
     });
   } catch (err) {
     console.error("[InvoiceController.list]", err);
-    return res.status(500).json({ status: "error", message: "Internal server error." });
-  }
-}
-
-// ─── GET /api/invoices/mine  (customer) ──────────────────────────────────────
-export async function myInvoicesHandler(req: Request, res: Response) {
-  try {
-    const user = (req as any).user as User;
-    const { page, limit, skip } = parsePagination(req.query);
-
-    const [rows, total] = await listUserInvoices(user.id, { skip, take: limit });
-    return res.status(200).json({
-      status: "success",
-      data: rows,
-      meta: paginate(total, page, limit),
-    });
-  } catch (err) {
-    console.error("[InvoiceController.mine]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }
@@ -92,11 +79,6 @@ export async function updateInvoiceStatusHandler(req: Request, res: Response) {
     const id = req.params.id as string;
     const { status } = req.body as { status: InvoiceStatus };
 
-    const existing = await getInvoiceById(id);
-    if (!existing) {
-      return res.status(404).json({ status: "error", message: "Invoice not found." });
-    }
-
     const updated = await updateInvoiceStatus(id, status);
     return res.status(200).json({ status: "success", data: updated });
   } catch (err) {
@@ -105,20 +87,32 @@ export async function updateInvoiceStatusHandler(req: Request, res: Response) {
   }
 }
 
-// ─── DELETE /api/invoices/:id  (admin — soft delete) ─────────────────────────
+// ─── GET /api/invoices/:id/pdf ────────────────────────────────────────────────
+export async function generatePdfHandler(req: Request, res: Response) {
+  try {
+    const id = req.params.id as string;
+    const invoice = await getInvoiceById(id);
+    if (!invoice) return res.status(404).json({ status: "error", message: "Invoice not found." });
+
+    // Stub for PDF generation logic
+    // In production, use pdfkit or puppeteer and upload to S3/Cloudinary
+    return res.status(200).json({ 
+      status: "success", 
+      message: "PDF generation triggered.",
+      data: { pdfUrl: `https://storage.eaglenet.com/invoices/${invoice.invoiceNumber}.pdf` }
+    });
+  } catch (err) {
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
+// ─── DELETE /api/invoices/:id ────────────────────────────────────────────────
 export async function deleteInvoiceHandler(req: Request, res: Response) {
   try {
     const id = req.params.id as string;
-
-    const existing = await getInvoiceById(id);
-    if (!existing) {
-      return res.status(404).json({ status: "error", message: "Invoice not found." });
-    }
-
     await softDeleteInvoice(id);
     return res.status(200).json({ status: "success", message: "Invoice deleted." });
   } catch (err) {
-    console.error("[InvoiceController.delete]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }

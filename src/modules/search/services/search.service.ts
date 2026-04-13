@@ -28,10 +28,10 @@ export async function performGlobalSearch(query: string, user: User): Promise<Se
   // 1. Search Shipments
   const shipmentRepo = AppDataSource.getRepository(Shipment);
   const shipmentQuery = shipmentRepo.createQueryBuilder("s")
-    .where("(s.trackingId ILIKE :q OR s.origin ILIKE :q OR s.destination ILIKE :q)", { q: searchTerm });
+    .where("(s.trackingNumber ILIKE :q OR s.originCity ILIKE :q OR s.destinationCity ILIKE :q)", { q: searchTerm });
 
   if (isCustomer) {
-    shipmentQuery.andWhere("s.userId = :uid", { uid: user.id });
+    shipmentQuery.andWhere("s.clientEmail = :email", { email: user.email });
   }
 
   const shipments = await shipmentQuery.take(5).getMany();
@@ -39,8 +39,8 @@ export async function performGlobalSearch(query: string, user: User): Promise<Se
     results.push({
       id: s.id,
       type: "shipment",
-      title: s.trackingId,
-      subtitle: `${s.origin} → ${s.destination}`,
+      title: s.trackingNumber,
+      subtitle: `${s.originCity || "TBC"} → ${s.destinationCity || "TBC"}`,
       url: `/shipments/${s.id}`
     });
   });
@@ -56,7 +56,7 @@ export async function performGlobalSearch(query: string, user: User): Promise<Se
 
   if (isCustomer) {
     // Only see documents tied to their shipment OR where they are the uploader
-    docQuery.andWhere("(ds.userId = :uid OR d.uploaderId = :uid)", { uid: user.id });
+    docQuery.andWhere("(ds.clientEmail = :email OR d.uploaderId = :uid)", { email: user.email, uid: user.id });
   }
 
   const documents = await docQuery.take(5).getMany();
@@ -77,7 +77,7 @@ export async function performGlobalSearch(query: string, user: User): Promise<Se
     .where("inv.invoiceNumber ILIKE :q", { q: searchTerm });
 
   if (isCustomer) {
-    invoiceQuery.andWhere("is.userId = :uid", { uid: user.id });
+    invoiceQuery.andWhere("is.clientEmail = :email", { email: user.email });
   }
 
   const invoices = await invoiceQuery.take(5).getMany();
@@ -86,7 +86,7 @@ export async function performGlobalSearch(query: string, user: User): Promise<Se
       id: inv.id,
       type: "invoice",
       title: inv.invoiceNumber,
-      subtitle: `Amount: $${inv.amount} (${inv.status})`,
+      subtitle: `Amount: $${inv.totalAmount} (${inv.status})`,
       url: `/invoices/${inv.id}`
     });
   });

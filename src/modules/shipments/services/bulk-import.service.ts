@@ -1,8 +1,7 @@
 import * as XLSX from "xlsx";
 import { AppDataSource } from "../../../../database/data-source";
-import { Shipment, ShipmentStatus, CreationSource } from "../entities/Shipment";
+import { Shipment, ShipmentStatus, ShipmentType } from "../entities/Shipment";
 import { Service } from "../entities/Service";
-import { generateEglId } from "../../../utils/helpers";
 
 const shipmentRepo = () => AppDataSource.getRepository(Shipment);
 const serviceRepo = () => AppDataSource.getRepository(Service);
@@ -31,7 +30,7 @@ export interface BulkImportResult {
 export async function bulkImportShipments(
   buffer: Buffer,
   staffId: string,
-  departmentId?: string,
+  _departmentId?: string,
   commitMessage?: string,
   defaultServiceId?: string
 ): Promise<BulkImportResult> {
@@ -94,33 +93,16 @@ export async function bulkImportShipments(
 
     // ── Build Shipment Record ──────────────────────────────────────────────
     const shipment = shipmentRepo().create({
-      shippingId: generateEglId("SHIP"),
-      trackingId: `EGLN${Math.floor(10000000 + Math.random() * 90000000)}`,
-      fullName: norm["fullName"],
-      email: norm["email"].toLowerCase(),
-      phoneNumber: norm["phoneNumber"],
-      pickupAddress: norm["pickupAddress"] || norm["origin"],
-      pickupCity: norm["pickupCity"] || norm["origin"],
-      deliveryAddress: norm["deliveryAddress"] || norm["destination"],
-      destinationCity: norm["destinationCity"] || norm["destination"],
-      preferredPickupDate: norm["preferredPickupDate"] || new Date().toISOString().split("T")[0],
-      preferredPickupTime: norm["preferredPickupTime"] || "00:00",
-      origin: norm["origin"],
-      destination: norm["destination"],
-      specialRequirements: norm["specialRequirements"] || undefined,
-      packageDetails: norm["packageDetails"] || undefined,
+      trackingNumber: `EGL-IMP-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      type: ShipmentType.AIR_FREIGHT,
+      clientName: norm["fullName"] || "Unknown",
+      clientEmail: norm["email"].toLowerCase(),
+      clientPhone: norm["phoneNumber"],
+      originCity: norm["origin"],
+      destinationCity: norm["destination"],
       status: (norm["status"] as ShipmentStatus) || ShipmentStatus.DELIVERED,
-      amount: parseFloat(norm["amount"]) || 0,
-      serviceId: service?.id,
-      userId: undefined,                   // No registered user — external record
-      departmentId: departmentId,
-      creationSource: CreationSource.STAFF,
-      isExternal: true,
-      dynamicFields: {
-        commitMessage: commitMessage || "Bulk import",
-        importedBy: staffId,
-        rawRow: norm,                       // Keep original row for auditing
-      },
+      assignedOfficerId: staffId,
+      notes: commitMessage || "Bulk import",
     });
 
     toInsert.push(shipment);

@@ -26,12 +26,11 @@ export async function getDashboardStats(_req: Request, res: Response) {
       .getRawMany();
 
     const statusMap: Record<string, number> = {
-      [ShipmentStatus.ORDER_PLACED]: 0,
-      [ShipmentStatus.PENDING_CONFIRMATION]: 0,
-      [ShipmentStatus.WAITING_TO_BE_SHIPPED]: 0,
-      [ShipmentStatus.SHIPPED]: 0,
-      [ShipmentStatus.AVAILABLE_FOR_PICKUP]: 0,
+      [ShipmentStatus.PENDING]: 0,
+      [ShipmentStatus.IN_TRANSIT]: 0,
+      [ShipmentStatus.ARRIVED]: 0,
       [ShipmentStatus.DELIVERED]: 0,
+      [ShipmentStatus.ON_HOLD]: 0,
       [ShipmentStatus.CANCELLED]: 0,
     };
     for (const row of statusCounts) {
@@ -52,38 +51,28 @@ export async function getDashboardStats(_req: Request, res: Response) {
       data: {
         totalUsers,
         totalOrders,
-        inTransit: statusMap[ShipmentStatus.SHIPPED],
-        pending: statusMap[ShipmentStatus.ORDER_PLACED] + statusMap[ShipmentStatus.PENDING_CONFIRMATION],
-        processing: statusMap[ShipmentStatus.WAITING_TO_BE_SHIPPED],
-        arrived: statusMap[ShipmentStatus.AVAILABLE_FOR_PICKUP],
+        inTransit: statusMap[ShipmentStatus.IN_TRANSIT],
+        pending: statusMap[ShipmentStatus.PENDING],
+        processing: statusMap[ShipmentStatus.ON_HOLD],
+        arrived: statusMap[ShipmentStatus.ARRIVED],
         delivered: statusMap[ShipmentStatus.DELIVERED],
         cancelled: statusMap[ShipmentStatus.CANCELLED],
         totalRevenue: Number(revenueResult.totalRevenue),
         // Chart data
         pieChart: [
           {
-            label: "Order Placed",
-            value: statusMap[ShipmentStatus.ORDER_PLACED],
+            label: "Pending",
+            value: statusMap[ShipmentStatus.PENDING],
             color: "#64748b",
           },
           {
-            label: "Pending Confirmation",
-            value: statusMap[ShipmentStatus.PENDING_CONFIRMATION],
-            color: "#f59e0b",
-          },
-          {
-            label: "Waiting Shipping",
-            value: statusMap[ShipmentStatus.WAITING_TO_BE_SHIPPED],
+            label: "In Transit",
+            value: statusMap[ShipmentStatus.IN_TRANSIT],
             color: "#3b82f6",
           },
           {
-            label: "In Transit",
-            value: statusMap[ShipmentStatus.SHIPPED],
-            color: "#6366f1",
-          },
-          {
-            label: "At Terminal",
-            value: statusMap[ShipmentStatus.AVAILABLE_FOR_PICKUP],
+            label: "Arrived",
+            value: statusMap[ShipmentStatus.ARRIVED],
             color: "#14b8a6",
           },
           {

@@ -2,7 +2,6 @@ import { Router } from "express";
 import {
   createInvoiceHandler,
   listInvoicesHandler,
-  myInvoicesHandler,
   getInvoiceHandler,
   updateInvoiceStatusHandler,
   deleteInvoiceHandler,
@@ -35,17 +34,6 @@ router.get(
   ...adminOnly,
   authorize("invoice", "read"),
   listInvoicesHandler
-);
-
-/**
- * Customer: My invoices (from shipments they own)
- * GET /api/invoices/mine
- */
-router.get(
-  "/mine",
-  ...auth,
-  authorize("invoice", "read"),
-  myInvoicesHandler
 );
 
 /**

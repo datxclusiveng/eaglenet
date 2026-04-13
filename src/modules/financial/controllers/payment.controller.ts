@@ -7,7 +7,6 @@ import { User } from "../../users/entities/User";
 import { sendPushNotification } from "../../notifications/services/push-notification.service";
 import { generateEglId, paginate, parsePagination } from "../../../utils/helpers";
 import { logActivity } from "../../shipments/services/activity.service";
-import { sendPaymentConfirmationEmail } from "../../notifications/services/email.service";
 import { reconcileInvoice } from "../services/invoice.service";
 
 const repo = () => AppDataSource.getRepository(Payment);
@@ -46,7 +45,7 @@ export async function initializePayment(req: Request, res: Response) {
     });
 
     await repo().save(payment);
-    await logActivity(shipmentId, user.id, "payment_initiated", { paymentId, amount });
+    await logActivity(shipmentId, user.id, "payment_initiated", { metadata: { paymentId, amount } });
 
     return res.status(200).json({ status: "success", data: payment });
   } catch (err) {
@@ -78,18 +77,12 @@ export async function paystackWebhook(req: Request, res: Response) {
         // Log Activity
         if (payment.shipmentId) {
           await logActivity(payment.shipmentId, user.id, "payment_success", { 
-            amount: payment.amount, 
-            reference: ref 
+            metadata: {
+              amount: payment.amount, 
+              reference: ref 
+            }
           });
         }
-
-        sendPaymentConfirmationEmail(user.email, {
-          fullName: user.firstName,
-          paymentId: payment.paymentId,
-          reference: payment.reference,
-          amount: payment.amount,
-          status: "SUCCESS",
-        }).catch(console.error);
 
         // Push Notif
         sendPushNotification(user.id, "Payment Successful 💳", `Payment Ref: ${ref} confirmed.`, "PAYMENT", `/payments/${payment.id}`).catch(console.error);

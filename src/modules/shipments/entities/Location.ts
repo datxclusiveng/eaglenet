@@ -19,6 +19,12 @@ export class Location {
   @Column()
   name!: string;
 
+  @Column({ unique: true })
+  code!: string; // IATA (e.g. LOS) or UN/LOCODE
+
+  @Column({ nullable: true })
+  country?: string;
+
   @Column({
     type: "enum",
     enum: LocationType,

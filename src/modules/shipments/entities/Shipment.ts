@@ -13,26 +13,22 @@ import {
   Index,
 } from "typeorm";
 import { User } from "../../users/entities/User";
-import { Service } from "./Service";
 import { Tracking } from "./Tracking";
-import { Payment } from "../../financial/entities/Payment";
 import { Department } from "../../departments/entities/Department";
 import { ShipmentLog } from "./ShipmentLog";
-import { Document } from "../../documents/entities/Document";
 
-export enum ShipmentStatus {
-  ORDER_PLACED = "ORDER_PLACED",
-  PENDING_CONFIRMATION = "PENDING_CONFIRMATION",
-  WAITING_TO_BE_SHIPPED = "WAITING_TO_BE_SHIPPED",
-  SHIPPED = "SHIPPED",
-  AVAILABLE_FOR_PICKUP = "AVAILABLE_FOR_PICKUP",
-  DELIVERED = "DELIVERED",
-  CANCELLED = "CANCELLED",
+export enum ShipmentType {
+  AIR_FREIGHT = "air_freight",
+  SEA_FREIGHT = "sea_freight",
 }
 
-export enum CreationSource {
-  CUSTOMER = "CUSTOMER",
-  STAFF = "STAFF",
+export enum ShipmentStatus {
+  PENDING = "pending",
+  IN_TRANSIT = "in_transit",
+  ARRIVED = "arrived",
+  DELIVERED = "delivered",
+  ON_HOLD = "on_hold",
+  CANCELLED = "cancelled",
 }
 
 @Entity("shipments")
@@ -40,87 +36,99 @@ export class Shipment {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Index()
+  @Column({ name: "tracking_number", unique: true })
+  trackingNumber!: string;
+
   @Column({
     type: "enum",
-    enum: CreationSource,
-    default: CreationSource.CUSTOMER,
-    name: "creation_source",
+    enum: ShipmentType,
   })
-  creationSource!: CreationSource;
-
-  @Column({ name: "is_external", default: false })
-  isExternal!: boolean;
-
-  @Index()
-  @Column({ name: "shipping_id", unique: true })
-  shippingId!: string; // EGL-SHIP-XXXXX
-
-  @Index()
-  @Column({ name: "tracking_id", unique: true })
-  trackingId!: string; // EGL-TRK-XXXXX
-
-  @Column({ name: "full_name" })
-  fullName!: string;
-
-  @Column()
-  email!: string;
-
-  @Column({ name: "phone_number" })
-  phoneNumber!: string;
-
-  @Column({ name: "pickup_address" })
-  pickupAddress!: string;
-
-  @Column({ name: "pickup_city" })
-  pickupCity!: string;
-
-  @Column({ name: "delivery_address" })
-  deliveryAddress!: string;
-
-  @Column({ name: "destination_city" })
-  destinationCity!: string;
-
-  @Column({ name: "preferred_pickup_date", type: "date" })
-  preferredPickupDate!: string;
-
-  @Column({ name: "preferred_pickup_time" })
-  preferredPickupTime!: string;
-
-  @Column({ name: "special_requirements", nullable: true, type: "text" })
-  specialRequirements?: string;
-
-  @Column({ name: "package_details", nullable: true, type: "text" })
-  packageDetails?: string;
-
-  @Column({
-    name: "weight",
-    nullable: true,
-    type: "decimal",
-    precision: 8,
-    scale: 2,
-  })
-  weight?: number;
+  type!: ShipmentType;
 
   @Index()
   @Column({
     type: "enum",
     enum: ShipmentStatus,
-    default: ShipmentStatus.ORDER_PLACED,
+    default: ShipmentStatus.PENDING,
   })
   status!: ShipmentStatus;
 
-  @Column({ type: "decimal", precision: 12, scale: 2, default: 0 })
-  amount!: number;
+  @Column({ name: "client_name" })
+  clientName!: string;
 
-  @Column({ type: "jsonb", nullable: true, default: {} })
-  dynamicFields?: Record<string, any>;
+  @Column({ name: "client_email" })
+  clientEmail!: string;
 
-  @Column({ name: "user_id", nullable: true })
-  userId?: string;
+  @Column({ name: "client_phone" })
+  clientPhone!: string;
+
+  @Column({ name: "origin_country", nullable: true })
+  originCountry?: string;
+
+  @Column({ name: "origin_city", nullable: true })
+  originCity?: string;
+
+  @Column({ name: "destination_country", nullable: true })
+  destinationCountry?: string;
+
+  @Column({ name: "destination_city", nullable: true })
+  destinationCity?: string;
+
+  @Column({ type: "date", nullable: true })
+  eta?: string;
+
+  @Column({ name: "actual_arrival_date", type: "date", nullable: true })
+  actualArrivalDate?: string;
+
+  @Column({ type: "text", nullable: true })
+  description?: string;
+
+  @Column({
+    name: "weight_kg",
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  weightKg?: number;
+
+  @Column({
+    name: "volume_cbm",
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  volumeCbm?: number;
+
+  @Column({ name: "airline_or_vessel", nullable: true })
+  airlineOrVessel?: string;
+
+  @Column({ name: "flight_or_voyage_number", nullable: true })
+  flightOrVoyageNumber?: string;
+
+  @Column({ name: "departure_date", type: "date", nullable: true })
+  departureDate?: string;
+
+  @Column({ type: "text", nullable: true })
+  notes?: string;
+
+  @Column({ name: "assigned_officer_id", nullable: true })
+  assignedOfficerId?: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
-  @JoinColumn({ name: "user_id" })
-  user?: User;
+  @JoinColumn({ name: "assigned_officer_id" })
+  assignedOfficer?: User;
+
+  @Column({ name: "invoice_id", nullable: true })
+  invoiceId?: string;
+
+  @Column({ name: "customs_record_id", nullable: true })
+  customsRecordId?: string;
+
+  @Column({ name: "is_deleted", default: false })
+  isDeleted!: boolean;
 
   @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
@@ -131,41 +139,11 @@ export class Shipment {
   @DeleteDateColumn({ name: "deleted_at" })
   deletedAt?: Date;
 
-  @Index()
-  @Column({ name: "department_id", nullable: true })
-  departmentId?: string;
-
-  @ManyToOne(() => Department, { nullable: true, onDelete: "SET NULL" })
-  @JoinColumn({ name: "department_id" })
-  department?: Department;
-
-  @Column({ name: "service_id", nullable: true })
-  serviceId?: string;
-
-  @ManyToOne(() => Service, { nullable: true, onDelete: "SET NULL" })
-  @JoinColumn({ name: "service_id" })
-  service?: Service;
-
-  @Column({ nullable: true })
-  origin?: string;
-
-  @Column({ nullable: true })
-  destination?: string;
-
-  @Column({ name: "arrival_date", type: "date", nullable: true })
-  arrivalDate?: string;
-
   @OneToMany(() => Tracking, (tracking) => tracking.shipment)
   trackingUpdates!: Tracking[];
 
-  @OneToMany(() => Payment, (payment) => payment.shipment)
-  payments!: Payment[];
-
   @OneToMany(() => ShipmentLog, (log) => log.shipment)
   logs!: ShipmentLog[];
-
-  @OneToMany(() => Document, (doc) => doc.shipment)
-  documents!: Document[];
 
   @ManyToMany(() => Department)
   @JoinTable({

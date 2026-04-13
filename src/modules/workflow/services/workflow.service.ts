@@ -67,7 +67,7 @@ export async function updateWorkflowStep(
     step.shipmentId,
     userId,
     `workflow_${data.status.toLowerCase()}`,
-    { step: step.name, comments: data.comments }
+    { metadata: { step: step.name, comments: data.comments } }
   );
 
   return saved;

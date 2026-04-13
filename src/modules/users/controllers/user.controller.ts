@@ -5,7 +5,6 @@ import { User, UserRole } from "../entities/User";
 import { Shipment } from "../../shipments/entities/Shipment";
 import { Payment } from "../../financial/entities/Payment";
 import { parsePagination, paginate } from "../../../utils/helpers";
-import { sendAdminCreatedEmail } from "../../notifications/services/email.service";
 import { createAuditLog } from "../../audit/services/audit.service";
 
 const userRepo = () => AppDataSource.getRepository(User);
@@ -42,7 +41,6 @@ export async function createAdmin(req: Request, res: Response) {
     });
 
     await repo.save(admin);
-    sendAdminCreatedEmail(admin.email, admin.firstName).catch(console.error);
 
     await createAuditLog({
       action: "ADMIN_CREATED",
@@ -86,8 +84,7 @@ export async function upgradeToAdmin(req: Request, res: Response) {
 
     target.role = UserRole.ADMIN;
     await repo.save(target);
-
-    sendAdminCreatedEmail(target.email, target.firstName).catch(console.error);
+    await repo.save(target);
 
     await createAuditLog({
       action: "ROLE_UPGRADED_TO_ADMIN",
@@ -206,7 +203,7 @@ export async function getUser(req: Request, res: Response) {
 
     // Get statistics
     const [totalBookings, totalSpentResult] = await Promise.all([
-      shipmentRepo.count({ where: { userId: userId } }),
+      shipmentRepo.count({ where: { clientEmail: user.email } }),
       paymentRepo
         .createQueryBuilder("p")
         .select("SUM(p.amount)", "total")
@@ -217,8 +214,7 @@ export async function getUser(req: Request, res: Response) {
     // Get recent activities
     const [recentShipments, recentPayments] = await Promise.all([
       shipmentRepo.find({
-        where: { userId: userId },
-        relations: ["service"],
+        where: { clientEmail: user.email },
         order: { createdAt: "DESC" },
         take: 10,
       }),
@@ -259,7 +255,7 @@ export async function myDashboard(req: Request, res: Response) {
     const paymentRepo = AppDataSource.getRepository(Payment);
 
     const totalBookings = await shipmentRepo.count({
-      where: { userId: user.id },
+      where: { clientEmail: user.email },
     });
     const totalPaid = await paymentRepo
       .createQueryBuilder("p")

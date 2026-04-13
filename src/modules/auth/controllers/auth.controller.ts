@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { AppDataSource } from "../../../../database/data-source";
 import { User, UserRole } from "../../users/entities/User";
-import { sendWelcomeEmail } from "../../notifications/services/email.service";
 
 const userRepo = () => AppDataSource.getRepository(User);
 
@@ -82,8 +81,7 @@ export async function register(req: Request, res: Response) {
 
     await repo.save(user);
 
-    // Fire-and-forget welcome email
-    sendWelcomeEmail(user.email, user.firstName).catch(console.error);
+
 
     const tokens = await assignTokens(user);
 

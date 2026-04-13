@@ -1,22 +1,38 @@
 import { AppDataSource } from "../../../../database/data-source";
-import { ShipmentLog } from "../entities/ShipmentLog";
+import { ShipmentLog, LogVisibility } from "../entities/ShipmentLog";
 
 /**
  * Logs a shipment activity for audit trailing.
  */
 export async function logActivity(
   shipmentId: string,
-  userId: string | undefined,
+  changedById: string | undefined,
   action: string,
-  metadata: Record<string, any> = {}
+  options: {
+    previousStatus?: string;
+    newStatus?: string;
+    note?: string;
+    emailSent?: boolean;
+    visibility?: LogVisibility;
+    ipAddress?: string;
+    userAgent?: string;
+    metadata?: Record<string, any>;
+  } = {}
 ) {
   try {
     const logRepo = AppDataSource.getRepository(ShipmentLog);
     const log = logRepo.create({
       shipmentId,
-      userId,
+      changedById,
       action,
-      metadata,
+      previousStatus: options.previousStatus,
+      newStatus: options.newStatus,
+      note: options.note,
+      emailSent: options.emailSent || false,
+      visibility: options.visibility || LogVisibility.INTERNAL,
+      ipAddress: options.ipAddress,
+      userAgent: options.userAgent,
+      metadata: options.metadata || {},
     });
     await logRepo.save(log);
   } catch (err) {

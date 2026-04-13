@@ -1,60 +1,66 @@
 import { Router } from "express";
 import {
   createShipment,
-  myShipments,
   trackShipment,
   getShipment,
   listShipments,
   updateShipmentStatus,
   getServices,
   getLocations,
-  addTrackingCheckpoint,
-  assignShipmentPrice,
+  getShipmentStats,
+  getStatusHistory,
+  sendManualOfficerEmail,
+  createInternalNote,
 } from "../controllers/shipment.controller";
+import { updateCustomsStatus, getCustomsDetail } from "../controllers/customs.controller";
 import { bulkImportShipmentsController } from "../controllers/bulk-import.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
-import { validate } from "../../../middleware/validate.middleware";
-import { createShipmentSchema } from "../../../utils/validators";
 import { bulkImportUpload } from "../../../middleware/upload.middleware";
 
 const router = Router();
 
-/**
- * PUBLIC: Get all services
- * GET /api/shipments/services
- */
+// ─── PUBLIC ROUTES ───────────────────────────────────────────────────────────
 router.get("/services", getServices);
-
-/**
- * PUBLIC: Get all locations (Airports/Seaports)
- * GET /api/shipments/locations
- */
 router.get("/locations", getLocations);
+router.get("/track/:trackingNumber", trackShipment);
+
+// ─── STAFF/ADMIN ROUTES (PROTECTED) ──────────────────────────────────────────
 
 /**
- * PUBLIC: Track a shipment by tracking ID
- * GET /api/shipments/track/:trackingId
+ * All following routes require authentication
  */
-router.get("/track/:trackingId", trackShipment);
+router.use(...auth);
 
-/**
- * Customer: Create a booking
- * POST /api/shipments
- */
-router.post("/", ...auth, authorize("shipment", "create"), validate(createShipmentSchema), createShipment);
+// Dashboard stats
+router.get("/stats", authorize("shipment", "read"), getShipmentStats);
 
-/**
- * Customer: My bookings (paginated, filtered)
- * GET /api/shipments/mine
- */
-router.get("/mine", ...auth, authorize("shipment", "read"), myShipments);
+// List all shipments
+router.get("/", authorize("shipment", "read"), listShipments);
 
-/**
- * Admin: Bulk import historical shipment records from Excel/CSV
- * POST /api/shipments/bulk-import
- * Body (form-data): file, departmentId?, commitMessage, defaultServiceId?
- */
+// Single shipment details
+router.get("/:id", authorize("shipment", "read"), getShipment);
+
+// Status history
+router.get("/:id/history", authorize("shipment", "read"), getStatusHistory);
+
+// Customs logic
+router.get("/:shipmentId/customs", authorize("shipment", "read"), getCustomsDetail);
+router.patch("/:shipmentId/customs", authorize("shipment", "update"), updateCustomsStatus);
+
+// Create shipment
+router.post("/", authorize("shipment", "create"), createShipment);
+
+// Update status
+router.patch("/:id/status", authorize("shipment", "update"), updateShipmentStatus);
+
+// Internal notes
+router.post("/:id/notes", authorize("shipment", "update"), createInternalNote);
+
+// Send manual email
+router.post("/:id/email", authorize("shipment", "update"), sendManualOfficerEmail);
+
+// Bulk import
 router.post(
   "/bulk-import",
   ...adminOnly,
@@ -62,35 +68,5 @@ router.post(
   bulkImportUpload.single("file"),
   bulkImportShipmentsController
 );
-
-/**
- * Customer/Admin: Single shipment details
- * GET /api/shipments/:id
- */
-router.get("/:id", ...auth, authorize("shipment", "read"), getShipment);
-
-/**
- * Admin: All shipments (paginated, filtered)
- * GET /api/shipments
- */
-router.get("/", ...adminOnly, authorize("shipment", "read"), listShipments);
-
-/**
- * Admin: Update shipment status
- * PATCH /api/shipments/:id/status
- */
-router.patch("/:id/status", ...adminOnly, authorize("shipment", "update"), updateShipmentStatus);
-
-/**
- * Admin: Add tracking checkpoint to a shipment
- * POST /api/shipments/:id/tracking
- */
-router.post("/:id/tracking", ...adminOnly, authorize("shipment", "update"), addTrackingCheckpoint);
-
-/**
- * Admin: Assign price to shipment
- * PATCH /api/shipments/:id/price
- */
-router.patch("/:id/price", ...adminOnly, authorize("shipment", "price"), assignShipmentPrice);
 
 export default router;

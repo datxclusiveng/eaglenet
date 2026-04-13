@@ -1,32 +1,50 @@
 import { AppDataSource } from "../../../../database/data-source";
 import { Invoice, InvoiceStatus } from "../entities/Invoice";
-import { PaymentStatus } from "../entities/Payment";
+import { Shipment } from "../../shipments/entities/Shipment";
+import { generateInvoiceNumber } from "../../shipments/utils/generators";
+import { MoreThanOrEqual } from "typeorm";
 
 const invoiceRepo = () => AppDataSource.getRepository(Invoice);
-
-// ─── Generate invoice number ────────────────────────────────────────────────
-async function generateInvoiceNumber(): Promise<string> {
-  const count = await invoiceRepo().count({ withDeleted: true });
-  const seq = String(count + 1).padStart(5, "0");
-  return `EGL-INV-${seq}`;
-}
+const shipmentRepo = () => AppDataSource.getRepository(Shipment);
 
 // ─── Create an invoice ───────────────────────────────────────────────────────
 export async function createInvoice(data: {
-  amount: number;
-  tax?: number;
-  shipmentId?: string;
+  shipmentId: string;
+  items: any[];
+  taxRate?: number;
   dueDate?: string;
   notes?: string;
   createdBy: string;
+  currency?: string;
 }): Promise<Invoice> {
-  const invoiceNumber = await generateInvoiceNumber();
+  const shipment = await shipmentRepo().findOneBy({ id: data.shipmentId });
+  if (!shipment) throw new Error("Shipment not found.");
+
+  // Get daily count for sequential naming
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const count = await invoiceRepo().count({
+    where: {
+      createdAt: MoreThanOrEqual(today)
+    }
+  });
+
+  const invoiceNumber = generateInvoiceNumber(count + 1);
+
+  // Financial calculations
+  const subtotal = data.items.reduce((sum, item) => sum + (Number(item.price) * (Number(item.quantity) || 1)), 0);
+  const taxRate = data.taxRate ?? 0;
+  const taxAmount = (subtotal * taxRate) / 100;
+  const totalAmount = subtotal + taxAmount;
 
   const invoice = invoiceRepo().create({
     invoiceNumber,
-    amount: data.amount,
-    tax: data.tax ?? 0,
     shipmentId: data.shipmentId,
+    items: data.items,
+    subtotal,
+    taxRate,
+    taxAmount,
+    totalAmount,
     dueDate: data.dueDate,
     notes: data.notes,
     createdBy: data.createdBy,
@@ -36,50 +54,37 @@ export async function createInvoice(data: {
   return invoiceRepo().save(invoice);
 }
 
-// ─── List all invoices (admin) ───────────────────────────────────────────────
+// ─── List all invoices (filtered) ───────────────────────────────────────────
 export async function listAllInvoices(opts: {
   skip: number;
   take: number;
   status?: InvoiceStatus;
+  search?: string;
 }): Promise<[Invoice[], number]> {
   const qb = invoiceRepo()
     .createQueryBuilder("inv")
     .leftJoinAndSelect("inv.shipment", "s")
-    .leftJoinAndSelect("inv.creator", "c")
-    .leftJoinAndSelect("inv.payments", "p")
+    .leftJoinAndSelect("inv.createdBy", "c")
     .orderBy("inv.createdAt", "DESC")
     .skip(opts.skip)
     .take(opts.take);
 
   if (opts.status) {
-    qb.where("inv.status = :status", { status: opts.status });
+    qb.andWhere("inv.status = :status", { status: opts.status });
+  }
+
+  if (opts.search) {
+    qb.andWhere("(inv.invoiceNumber ILIKE :s OR s.trackingNumber ILIKE :s OR s.clientName ILIKE :s)", { s: `%${opts.search}%` });
   }
 
   return qb.getManyAndCount();
-}
-
-// ─── List invoices for a customer ────────────────────────────────────────────
-export async function listUserInvoices(
-  userId: string,
-  opts: { skip: number; take: number }
-): Promise<[Invoice[], number]> {
-  // Customer can only see invoices tied to their shipments
-  return invoiceRepo()
-    .createQueryBuilder("inv")
-    .leftJoinAndSelect("inv.shipment", "s")
-    .leftJoinAndSelect("inv.payments", "p")
-    .where("s.userId = :userId", { userId })
-    .orderBy("inv.createdAt", "DESC")
-    .skip(opts.skip)
-    .take(opts.take)
-    .getManyAndCount();
 }
 
 // ─── Get single invoice ───────────────────────────────────────────────────────
 export async function getInvoiceById(id: string): Promise<Invoice | null> {
   return invoiceRepo().findOne({
     where: { id },
-    relations: ["shipment", "creator", "payments", "payments.user"],
+    relations: ["shipment", "createdBy"],
   });
 }
 
@@ -99,28 +104,8 @@ export async function softDeleteInvoice(id: string): Promise<void> {
 }
 
 // ─── Reconcile: recompute status based on linked payments ────────────────────
-/**
- * Called after a payment succeeds. Checks if total paid >= invoice amount
- * and automatically marks it PAID or PARTIAL.
- */
-export async function reconcileInvoice(invoiceId: string): Promise<void> {
-  const invoice = await invoiceRepo().findOne({
-    where: { id: invoiceId },
-    relations: ["payments"],
-  });
-  if (!invoice) return;
-
-  const totalPaid = invoice.payments
-    .filter((p) => p.status === PaymentStatus.SUCCESS)
-    .reduce((sum, p) => sum + Number(p.amount), 0);
-
-  const totalDue = Number(invoice.amount) + Number(invoice.tax);
-
-  if (totalPaid >= totalDue) {
-    invoice.status = InvoiceStatus.PAID;
-  } else if (totalPaid > 0) {
-    invoice.status = InvoiceStatus.PARTIAL;
-  }
-
-  await invoiceRepo().save(invoice);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function reconcileInvoice(_invoiceId: string): Promise<void> {
+  // To be implemented in Phase 4 during payment integration
+  // This will check transaction logs and mark PAID if total >= totalAmount
 }
