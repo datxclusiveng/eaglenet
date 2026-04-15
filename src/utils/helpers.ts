@@ -38,3 +38,25 @@ export function parsePagination(query: Record<string, any>) {
   const skip = (page - 1) * limit;
   return { page, limit, skip };
 }
+
+/**
+ * Sanitize user object for API responses
+ * Removes sensitive fields like password, refresh tokens, etc.
+ */
+export function sanitizeUser(user: any): any {
+  if (!user) return null;
+  
+  const sanitized = { ...user };
+  delete sanitized.password;
+  delete sanitized.refreshToken;
+  delete sanitized.refreshTokenExpiresAt;
+  
+  return sanitized;
+}
+
+/**
+ * Sanitize array of users
+ */
+export function sanitizeUsers(users: any[]): any[] {
+  return users.map(sanitizeUser);
+}

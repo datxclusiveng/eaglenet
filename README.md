@@ -1,138 +1,113 @@
-# EagleNet Logistics - Backend Architecture & Workflow Guide
+# 🦅 EagleNet Logistics - Enterprise Parallel Orchestration Engine
 
-Welcome to the EagleNet Logistics API backend. This specialized platform is structured to mimic real-world enterprise freight, customs, and financial operations. This README serves as a step-by-step guide answering "How does this system work from start to finish?" including the exact API endpoints and payloads you need to execute the workflow.
+Welcome to the **EagleNet Logistics Core API**. This is a mission-critical, feature-modular backend designed for high-concurrency freight operations, customs regulatory compliance, and automated financial settlement.
 
----
-
-## 🏗️ 1. Architecture Overview
-
-**Tech Stack**: Node.js, Express, TypeScript, TypeORM, PostgreSQL.
-**Design Pattern**: Feature-Modular Architecture. Instead of dumping all routes and controllers together, the system is strictly bounded by business context:
-*   `modules/auth` & `modules/users`: Security, JWT generation, & RBAC (Role Based Access Control).
-*   `modules/shipments`: The core operations engine (Tracing, Logistics, Bulk imports, Customs bridging).
-*   `modules/financial`: Autonomous invoicing, sequential IDs, and Paystack webhooks.
-*   `modules/notifications`: Resend/SMTP email integrations and push alerts.
-*   `modules/audit`: Write-only forensic logging for accountability.
+The system is architected as a **Parallel Workflow Engine**, allowing multiple departments to collaborate on a single shipment simultaneously without blocking state transitions.
 
 ---
 
-## 🔄 2. The Operational Workflow (Step-by-Step)
+## 🏗️ System Architecture & Data Design
 
-Here is exactly how a freight shipment moves entirely through the EagleNet backend logic, replicating real-life operational scenarios. All base URLs are relative to `http://localhost:3000/api`.
+### 1. Feature-Modular "Bounded Contexts"
+The codebase is strictly organized into domain-specific modules, ensuring low coupling and high cohesion:
+- **`auth/users/roles/permissions`**: Tiered Identity Access Management (IAM).
+- **`shipments/workflow`**: The state machine driving the logistics engine.
+- **`financial/payments`**: Autonomous invoicing and Paystack-integrated transaction ledger.
+- **`documents`**: Version-controlled artifact storage with S3/B2 integration.
+- **`notifications/audit`**: Real-time event propagation and forensic logging.
 
-### Step 1: Identity & Authorization
-Before anything happens, an officer or client must exist. We authenticate to get a Bearer Token.
+### 2. Parallel Role-Based & Attribute-Based Access Control (RBAC/ABAC)
+Unlike traditional flat role systems, EagleNet implements a **Department-Aware Permission System**:
+- **Parallel Roles**: A user can be an `Admin` in the **Operations** department while simultaneously being a `Viewer` in the **Finance** department.
+- **Permission Scopes**: Dynamic scoping (`own`, `department`, `all`) allows granular data visibility based on the user's current context.
+- **JSON Extensibility**: All major entities (`Department`, `User`, `Shipment`) include a `metadata` `jsonb` field for schema-less expansion of enterprise-specific attributes.
 
-**Login Route:** `POST /auth/login`
-```json
-{
-    "email": "admin@eaglenet.com",
-    "password": "password123"
-}
+---
+
+## 🔄 The Comprehensive Operational Flow
+
+### 🌊 Phase 1: Initiation & Identity
+Every action starts with a secure handshake. The system uses signed JWTs with departmental claims.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant AuthModule
+    participant DB
+    User->>AuthModule: POST /auth/login
+    AuthModule->>DB: Validate Credentials
+    DB-->>AuthModule: User + DeptRoles + Permissions
+    AuthModule-->>User: Bearer Token (containing claims)
 ```
-*Take the `token` from the response and use it as a Bearer Token for subsequent requests.*
 
-### Step 2: Shipment Orchestration
-A client books a shipment (Air Freight or Sea Freight). 
+### 🚢 Phase 2: Parallel Shipment Orchestration
+Once a shipment is created, it enters a "Collaboration State".
 
-**Create Shipment Route:** `POST /shipments`
+1. **Shipment Creation**: `POST /shipments` generates a unique `trackingNumber` (e.g., `EGL-AF-2026-0001`).
+2. **Parallel Workflows**: The system initializes `workflow_steps`. Multiple departments (e.g., *Warehouse*, *Customs*, *Operations*) can start their respective tasks in parallel.
+3. **Collaborators**: Departments are assigned to the shipment via `shipment_collaborators`, granting their staff access to specific lifecycle actions.
+
+#### 📦 Shipment Structure (JSON Data Design)
+The system leverages structured JSON for flexibility:
 ```json
 {
+    "trackingNumber": "EGL-AF-10293",
     "type": "air_freight",
-    "clientName": "Acme Corp",
-    "clientEmail": "logistics@acme.com",
-    "clientPhone": "+1234567890",
-    "originCountry": "USA",
-    "originCity": "New York",
-    "destinationCountry": "UK",
-    "destinationCity": "London",
-    "weightKg": 500,
-    "volumeCbm": 2.5,
-    "description": "Electronics",
-    "airlineOrVessel": "British Airways"
-}
-```
-*This generates a `trackingNumber` (e.g. `EGL-AF-20260413-001`) and triggers `logActivity()` to write the `PENDING` creation event into the `ShipmentLog` entity.*
-
-**Update Shipment Status Route:** `PATCH /shipments/{shipmentId}/status`
-```json
-{
-    "status": "in_transit",
-    "note": "Departed from origin facility",
-    "triggerEmail": true,
-    "visibility": "public"
+    "status": "pending",
+    "metadata": {
+        "priority": "express",
+        "hazmat": false,
+        "temperature_controlled": true
+    },
+    "collaborators": ["dept-id-operations", "dept-id-customs"]
 }
 ```
 
-### Step 3: Customs & Regulatory Clearance
-Once freight arrives globally, it requires inspection. Rather than bloating the main Shipment table, a 1-to-1 relations table handles customs clearance constraints.
+### 🛂 Phase 3: Customs & Regulatory Gateway
+Shipments requiring clearance are linked to the `customs_clearances` module.
+- **Status Progression**: `pending_documents` ➡️ `under_examination` ➡️ `duty_paid` ➡️ `released`.
+- **Checkpoint Synchronization**: Every customs status change automatically triggers a `ShipmentLog` entry and updates the public `Tracking` timeline.
 
-**Update Customs Status Route:** `PATCH /shipments/{shipmentId}/customs`
-```json
-{
-    "status": "under_examination",
-    "remarks": "Inspecting cargo contents."
-}
-```
-*When fees are settled and inspections clear, this is patched to `"status": "released"`.*
+### 💰 Phase 4: Financial Settlement & Ledger
+The financial lifecycle is decoupled from logistics to allow for asynchronous billing.
 
-### Step 4: The Financial Lifecycle
-Freight is cleared; the client owes EagleNet capital.
+1. **Invoicing**: Total amounts are calculated dynamically based on weights, volumes, and service types.
+2. **Transaction Bridge**: `POST /payments/initialize` creates a gateway link.
+3. **Webhook Reconciliation**: Upon successful payment, the Paystack webhook (`POST /payments/webhook`) notifies the engine, which:
+   - Marks the `Invoice` as `PAID`.
+   - Records the `Payment` reference in the immutable ledger.
+   - Triggers an email notification to the client.
 
-**Create Itemized Invoice Route:** `POST /invoices`
-```json
-{
-    "shipmentId": "{shipmentId}",
-    "items": [
-        { "description": "Air Freight Charges", "quantity": 1, "price": 1500 },
-        { "description": "Customs Handling", "quantity": 1, "price": 250 }
-    ],
-    "taxRate": 7.5,
-    "currency": "NGN"
-}
-```
-*Generates an ID like `INV-20260413-001`. The backend calculates subtotals and applies the tax dynamically.*
-
-**Initialize Payment Route:** `POST /payments/initialize`
-```json
-{
-    "shipmentId": "{shipmentId}",
-    "amount": 1881.25
-}
-```
-*The gateway creates an external webhook handshake, generating a Paystack secure bridge URL. Once payment clears, Paystack independently posts back to the webhook (`POST /payments/webhook`), deduplicating against the ledger and marking the invoice `PAID`.*
-
-### Step 5: Post-Completion Notifications & Audit
-You can pull the shipment history and tracking publicly.
-
-**Track Public Shipment Route:** `GET /shipments/track/{trackingNumber}`
-*(No Payload required. Returns a sanitized list of only `public` tracking logs associated with that shipment)*
-
-**Get Dashboard Statistics Route:** `GET /shipments/stats`
-*(No Payload required. Aggregates Postgres counts in real-time grouped by lifecycle status).*
+### 📜 Phase 5: Document Versioning & Compliance
+Documents (Waybills, Invoices, Certificates) are stored with full version history:
+- **Versioning**: Every upload (`POST /documents/{id}/version`) increments the `version_number`.
+- **Privacy Scopes**: `GLOBAL` (Public), `DEPARTMENT` (Internal), or `PRIVATE` (Uploader only).
 
 ---
 
-## 🚀 3. Running It Locally
+## 🛠️ Developer Operations (DevOps)
 
-**Prerequisites:** 
-- Node.js installed.
-- Valid PostgreSQL server running locally or via Docker. 
+### Initial Setup
+Ensure your `.env` contains:
+- `DATABASE_URL`: PostgreSQL connection string.
+- `JWT_SECRET`: For cryptographic signing.
+- `PAYSTACK_SECRET_KEY`: For financial processing.
+- `B2_KEY_ID / B2_APPLICATION_KEY`: For S3-compatible document storage.
 
-**Steps:**
-1. Clone the repo and ensure all packages are installed:
-   ```bash
-   npm install
-   ```
-2. Set up your `.env` securely (Database URL, JWT Secret, Paystack Keys).
-3. Push the synchronized schema up to your DB:
-   ```bash
-   npm run typeorm migration:run -d database/data-source.ts
-   ```
-4. Start the Hot-Reloading Development Server:
-   ```bash
-   npm run dev
-   ```
+### Commands
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Starts the hot-reloading development server via `ts-node-dev`. |
+| `npm run migration:run` | Syncs the Postgres schema with the current entity definitions. |
+| `npm run migration:generate` | Automatically detects entity changes and generates a new SQL migration. |
+| `npm run create:ceo` | Utility script to seed the initial Superadmin/CEO user. |
 
-## 🛠️ Testing via Postman
-We've included `eaglenet_postman_collection.json` inside the root directory. Drop that directly into Postman to have all of these exact endpoints readily mapped out for testing!
+---
+
+## 📊 Monitoring & Auditability
+EagleNet maintains a **Write-Only Forensic Ledger**:
+- **Audit Logs**: Every sensitive action (logins, deletions, permission changes) is recorded with timestamp, IP, and the user agent.
+- **Shipment Logs**: A detailed history of every status swap, including notes on who made the change and why.
+
+---
+*Built for the future of global logistics by the EagleNet Technical Operations Team.*

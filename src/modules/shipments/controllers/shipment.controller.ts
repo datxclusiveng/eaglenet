@@ -5,7 +5,8 @@ import { Service } from "../entities/Service";
 import { Location } from "../entities/Location";
 import { User, UserRole } from "../../users/entities/User";
 import { PermissionScope } from "../../permissions/entities/Permission";
-import { paginate, parsePagination } from "../../../utils/helpers";
+import { paginate, parsePagination, sanitizeUser } from "../../../utils/helpers";
+import { serializeShipment, serializePaginatedResponse } from "../../../utils/serializers";
 import { logActivity } from "../services/activity.service";
 import { LogVisibility, ShipmentLog } from "../entities/ShipmentLog";
 import {
@@ -113,7 +114,7 @@ export async function createShipment(req: Request, res: Response) {
       carrier: shipment.airlineOrVessel || "TBC",
     }).catch(console.error);
 
-    return res.status(201).json({ status: "success", data: shipment });
+    return res.status(201).json({ status: "success", data: serializeShipment(shipment) });
   } catch (err) {
     console.error("[ShipmentController.create]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -151,11 +152,9 @@ export async function listShipments(req: Request, res: Response) {
     qb.orderBy("s.createdAt", "DESC").skip(skip).take(limit);
     const [rows, total] = await qb.getManyAndCount();
 
-    return res.status(200).json({
-      status: "success",
-      data: rows,
-      meta: paginate(total, page, limit),
-    });
+    return res.status(200).json(
+      serializePaginatedResponse(rows, paginate(total, page, limit))
+    );
   } catch (err) {
     console.error("[ShipmentController.list]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -204,7 +203,7 @@ export async function updateShipmentStatus(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({ status: "success", data: shipment });
+    return res.status(200).json({ status: "success", data: serializeShipment(shipment) });
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
@@ -296,7 +295,12 @@ export async function getStatusHistory(req: Request, res: Response) {
       order: { createdAt: "DESC" }
     });
 
-    return res.status(200).json({ status: "success", data: history });
+    const sanitizedHistory = history.map(entry => ({
+      ...entry,
+      changedBy: sanitizeUser(entry.changedBy),
+    }));
+
+    return res.status(200).json({ status: "success", data: sanitizedHistory });
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Error fetching history." });
   }
@@ -372,7 +376,7 @@ export async function getShipment(req: Request, res: Response) {
       relations: ["assignedOfficer", "logs", "collaborators"],
     });
     if (!shipment) return res.status(404).json({ status: "error", message: "Shipment not found." });
-    return res.status(200).json({ status: "success", data: shipment });
+    return res.status(200).json({ status: "success", data: serializeShipment(shipment) });
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }

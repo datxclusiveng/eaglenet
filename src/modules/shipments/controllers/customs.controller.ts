@@ -3,6 +3,7 @@ import { AppDataSource } from "../../../../database/data-source";
 import { CustomsClearance, CustomsStatus } from "../entities/CustomsClearance";
 import { User } from "../../users/entities/User";
 import { logActivity } from "../services/activity.service";
+import { sanitizeUser } from "../../../utils/helpers";
 
 const repo = () => AppDataSource.getRepository(CustomsClearance);
 
@@ -49,7 +50,12 @@ export async function getCustomsDetail(req: Request, res: Response) {
 
     if (!clearance) return res.status(404).json({ status: "error", message: "No customs record found." });
 
-    return res.status(200).json({ status: "success", data: clearance });
+    const safeClearance = {
+      ...clearance,
+      clearingAgent: sanitizeUser(clearance.clearingAgent),
+    };
+
+    return res.status(200).json({ status: "success", data: safeClearance });
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }

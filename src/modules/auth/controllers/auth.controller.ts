@@ -16,7 +16,7 @@ function signToken(userId: string): string {
 }
 
 function sanitize(user: User) {
-  const { password, refreshToken, ...rest } = user as any;
+  const { password, refreshToken, refreshTokenExpiresAt, ...rest } = user as any;
   return rest;
 }
 

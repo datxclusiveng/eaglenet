@@ -52,11 +52,16 @@ export const uploadDocumentSchema = z.object({
 
 export const createInvoiceSchema = z.object({
   body: z.object({
-    amount: z.number().positive("Amount must be positive"),
-    tax: z.number().min(0).optional(),
-    shipmentId: z.string().uuid("Invalid shipment ID").optional(),
+    shipmentId: z.string().uuid("Invalid shipment ID"),
+    items: z.array(z.object({
+      description: z.string().min(1, "Description is required"),
+      quantity: z.number().positive("Quantity must be positive"),
+      price: z.number().positive("Price must be positive"),
+    })).min(1, "At least one item is required"),
+    taxRate: z.number().min(0).optional(),
     dueDate: z.string().optional(),
     notes: z.string().optional(),
+    currency: z.string().optional(),
   }),
 });
 
