@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { InvoiceStatus } from "../modules/financial/entities/Invoice";
 
 export const registerSchema = z.object({
   body: z.object({
@@ -61,13 +62,13 @@ export const createInvoiceSchema = z.object({
     taxRate: z.number().min(0).optional(),
     dueDate: z.string().optional(),
     notes: z.string().optional(),
-    currency: z.string().optional(),
+    currency: z.string().min(3).max(3).default("NGN"),
   }),
 });
 
 export const updateInvoiceStatusSchema = z.object({
   body: z.object({
-    status: z.enum(["DRAFT", "SENT", "PAID", "PARTIAL", "CANCELLED"] as const, {
+    status: z.nativeEnum(InvoiceStatus, {
       message: "Invalid status value",
     }),
   }),
