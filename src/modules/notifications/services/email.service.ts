@@ -1,5 +1,8 @@
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
+import * as fs from "fs";
+import * as path from "path";
+import Handlebars from "handlebars";
 import { AppDataSource } from "../../../../database/data-source";
 import { EmailLog, EmailStatus } from "../entities/EmailLog";
 
@@ -35,11 +38,12 @@ const smtpTransporter = process.env.SMTP_HOST
 interface EmailPayload {
   to: string;
   subject: string;
-  html: string;
+  html?: string;
   shipmentId?: string;
   invoiceId?: string;
   templateUsed?: string;
   sentById?: string;
+  templateData?: any;
 }
 
 async function logEmail(payload: EmailPayload, status: EmailStatus, error?: string) {
@@ -61,10 +65,43 @@ async function logEmail(payload: EmailPayload, status: EmailStatus, error?: stri
   }
 }
 
+/**
+ * Loads and compiles a Handlebars template.
+ */
+function compileTemplate(templateName: string, data: any): string {
+  try {
+    const templatePath = path.join(process.cwd(), "src", "templates", "emails", `${templateName}.hbs`);
+    if (!fs.existsSync(templatePath)) {
+      console.warn(`[EmailService] Template not found: ${templateName}.`);
+      return data.content || "Template missing";
+    }
+    const source = fs.readFileSync(templatePath, "utf-8");
+    const template = Handlebars.compile(source);
+    return template(data);
+  } catch (err) {
+    console.error(`[EmailService] Template compilation error (${templateName}):`, err);
+    return "Compilation error";
+  }
+}
+
 async function send(payload: EmailPayload) {
   if (!ENABLED) {
     console.info(`[EmailService] Mailing disabled. Subject: ${payload.subject} → ${payload.to}`);
     return;
+  }
+
+  // Pre-process template if specified
+  if (payload.templateUsed && payload.templateData) {
+    payload.html = compileTemplate(payload.templateUsed, {
+      ...payload.templateData,
+      brandName: BRAND,
+      year: new Date().getFullYear(),
+    });
+  }
+
+  if (!payload.html) {
+      console.error("[EmailService] No content provided (html or template).");
+      return;
   }
 
   let status = EmailStatus.SENT;
@@ -74,7 +111,7 @@ async function send(payload: EmailPayload) {
     if (PROVIDER === "console") {
       console.info(`To: ${payload.to} | Sub: ${payload.subject}`);
     } else if (PROVIDER === "smtp" && smtpTransporter) {
-      await smtpTransporter.sendMail({ from: MAIL_FROM, ...payload });
+      await smtpTransporter.sendMail({ from: MAIL_FROM, to: payload.to, subject: payload.subject, html: payload.html });
     } else {
       await resend.emails.send({ from: MAIL_FROM, to: payload.to, subject: payload.subject, html: payload.html });
     }
@@ -85,42 +122,6 @@ async function send(payload: EmailPayload) {
   }
 
   await logEmail(payload, status, errorMessage);
-}
-
-// ─── Template helpers ──────────────────────────────────────────────────────────
-
-function base(content: string) {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; overflow: hidden; }
-    .header { background: #1a1a2e; color: #fff; padding: 24px 32px; }
-    .header h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
-    .header span { color: #e8a835; }
-    .body { padding: 32px; color: #333; line-height: 1.7; }
-    .body h2 { color: #1a1a2e; margin-top: 0; }
-    .info-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-    .info-table td { padding: 10px 14px; border-bottom: 1px solid #eee; }
-    .info-table td:first-child { font-weight: bold; color: #555; width: 40%; }
-    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
-    .badge-pending { background: #fff3cd; color: #856404; }
-    .badge-transit { background: #cce5ff; color: #004085; }
-    .badge-success { background: #d4edda; color: #155724; }
-    .footer { background: #f8f8f8; padding: 20px 32px; font-size: 12px; color: #999; text-align: center; border-top: 1px solid #eee; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header"><h1><span>Eagle</span>Net Logistics</h1></div>
-    <div class="body">${content}</div>
-    <div class="footer">&copy; ${new Date().getFullYear()} ${BRAND}. All rights reserved.</div>
-  </div>
-</body>
-</html>`;
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────────
@@ -141,19 +142,15 @@ export async function sendBookingConfirmationEmail(
   await send({
     to,
     subject: `Shipment Confirmation — ${data.trackingId}`,
-    templateUsed: "shipment_confirmation",
+    templateUsed: "notification", // Fallback to safe template
     shipmentId: data.shipmentId,
-    html: base(`
-      <h2>Your shipment has been booked.</h2>
-      <p>Hi <strong>${data.fullName}</strong>, your ${data.type.replace("_", " ")} shipment is in our system.</p>
-      <table class="info-table">
-        <tr><td>Tracking Number</td><td>${data.trackingId}</td></tr>
-        <tr><td>Origin</td><td>${data.origin}</td></tr>
-        <tr><td>Destination</td><td>${data.destination}</td></tr>
-        <tr><td>Carrier</td><td>${data.carrier}</td></tr>
-        <tr><td>Est. Arrival</td><td>${data.eta}</td></tr>
-      </table>
-      <p>Keep this tracking number safe to monitor your shipment progress.</p>`),
+    templateData: {
+      title: "Booking Confirmed",
+      customerName: data.fullName,
+      mainContent: `Your ${data.type.replace("_", " ")} shipment from ${data.origin} to ${data.destination} has been booked.`,
+      shipmentId: data.trackingId,
+      status: "PENDING",
+    },
   });
 }
 
@@ -168,23 +165,40 @@ export async function sendStatusUpdateEmail(
     shipmentId?: string;
   },
 ) {
-  const statusMap: Record<string, string> = {
-    pending: "badge-pending",
-    in_transit: "badge-transit",
-    arrived: "badge-success",
-    delivered: "badge-success",
-  };
   await send({
     to,
     subject: `Update: Shipment ${data.trackingId}`,
-    templateUsed: "shipment_update",
+    templateUsed: "notification",
     shipmentId: data.shipmentId,
-    html: base(`
-      <h2>Shipment Status Update 📦</h2>
-      <p>Hi <strong>${data.fullName}</strong>, here's the latest update.</p>
-      <table class="info-table">
-        <tr><td>Tracking Number</td><td>${data.trackingId}</td></tr>
-        <tr><td>Current Status</td><td><span class="badge ${statusMap[data.status] || ""}">${data.status.replace("_", " ").toUpperCase()}</span></td></tr>
-      </table>`),
+    templateData: {
+      title: "Status Update",
+      customerName: data.fullName,
+      mainContent: `The status of your shipment ${data.trackingId} has been updated.`,
+      shipmentId: data.trackingId,
+      status: data.status.replace("_", " ").toUpperCase(),
+    },
   });
+}
+
+export async function sendWelcomeEmail(to: string, fullName: string) {
+    await send({
+        to,
+        subject: `Welcome to ${BRAND}`,
+        templateUsed: "welcome",
+        templateData: {
+            customerName: fullName,
+            mainContent: "Your account has been created successfully. Welcome aboard!",
+        }
+    });
+}
+
+export async function sendPasswordResetEmail(to: string, resetLink: string) {
+    await send({
+        to,
+        subject: "Password Reset Request",
+        templateUsed: "password-reset",
+        templateData: {
+            resetLink
+        }
+    });
 }

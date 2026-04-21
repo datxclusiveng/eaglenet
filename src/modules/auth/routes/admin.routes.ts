@@ -2,25 +2,37 @@ import { Router } from "express";
 import {
   getDashboardStats,
   getMonthlyReport,
+  getStaffPerformance,
+  listAllUsers,
 } from "../controllers/admin.controller";
-import { adminOnly } from "../../../middleware/auth.middleware";
+import { adminOnly, superAdminOnly } from "../../../middleware/auth.middleware";
 
 const router = Router();
 
 /**
- * Admin: Dashboard statistics
  * GET /api/admin/dashboard
- * Returns: totalUsers, totalOrders, inTransit, pending, delivered, delayed,
- *          totalRevenue, pieChart data, barChart data
+ * Admin: KPI stats + recent activities + recent shipments
  */
 router.get("/dashboard", ...adminOnly, getDashboardStats);
 
 /**
- * Admin: Monthly report
+ * GET /api/admin/analytics/staff-performance
+ * Admin: staff performance metrics
+ */
+router.get("/analytics/staff-performance", ...adminOnly, getStaffPerformance);
+
+/**
  * GET /api/admin/reports
+ * Admin: monthly report
  * Query: ?year&month
- * Returns: totalBookings, newCustomers, totalRevenue, reportReady (%)
  */
 router.get("/reports", ...adminOnly, getMonthlyReport);
+
+/**
+ * GET /api/admin/users
+ * SuperAdmin: list all staff/users (paginated, searchable, filterable by role)
+ * Query: ?page&limit&search&role
+ */
+router.get("/users", ...superAdminOnly, listAllUsers);
 
 export default router;

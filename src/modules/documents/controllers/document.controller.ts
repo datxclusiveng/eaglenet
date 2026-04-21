@@ -3,6 +3,7 @@ import { AppDataSource } from "../../../../database/data-source";
 import { Document, DocumentStatus, VisibilityScope } from "../entities/Document";
 import { User, UserRole } from "../../users/entities/User";
 import { sendPushNotification } from "../../notifications/services/push-notification.service";
+import { NotificationType } from "../../notifications/entities/Notification";
 import { createDocumentVersion, logDocumentActivity } from "../services/document.service";
 import { DocumentAction } from "../entities/DocumentActivity";
 import { uploadFile } from "../../../utils/storage.service";
@@ -112,7 +113,7 @@ export async function updateDocumentStatus(req: Request, res: Response) {
     await logDocumentActivity(doc.id, (req as any).user?.id || doc.uploaderId, action, comment);
 
     // Push Notif
-    sendPushNotification(doc.uploaderId, "Document Clearance 📄", `Your ${doc.documentType} has been ${status.toLowerCase()}.`, "DOCUMENT", `/shipments/${doc.shipmentId}`).catch(console.error);
+    sendPushNotification(doc.uploaderId, "Document Clearance 📄", `Your ${doc.documentType} has been ${status.toLowerCase()}.`, NotificationType.STATUS_UPDATE, `/shipments/${doc.shipmentId}`).catch(console.error);
 
     return res.status(200).json({ status: "success", data: doc });
   } catch (err) {

@@ -3,99 +3,147 @@ import { AppDataSource } from "../../../../database/data-source";
 import { Shipment, ShipmentStatus } from "../../shipments/entities/Shipment";
 import { Payment } from "../../financial/entities/Payment";
 import { User, UserRole } from "../../users/entities/User";
+import { AuditLog } from "../../audit/entities/AuditLog";
+import { PermissionScope } from "../../permissions/entities/Permission";
+import { parsePagination, paginate } from "../../../utils/helpers";
 
-// ─── Admin Dashboard ──────────────────────────────────────────────────────────
+import { appCache, CacheKeys } from "../../../utils/cache";
 
-export async function getDashboardStats(_req: Request, res: Response) {
+// ─── Admin Dashboard ───────────────────────────────────────────────────────────
+
+export async function getDashboardStats(req: Request, res: Response) {
   try {
+    const actor = (req as any).user as User;
+    const { scope, departmentId } = (req as any).permissionScope || {};
+
+    const cacheKey = CacheKeys.getDashboardKey(actor.id, departmentId);
+    const cachedData = appCache.get(cacheKey);
+
+    if (cachedData) {
+      return res.status(200).json({ status: "success", data: cachedData });
+    }
+
     const userRepo = AppDataSource.getRepository(User);
     const shipmentRepo = AppDataSource.getRepository(Shipment);
     const paymentRepo = AppDataSource.getRepository(Payment);
+    const auditRepo = AppDataSource.getRepository(AuditLog);
 
-    const [totalUsers, totalOrders] = await Promise.all([
-      userRepo.count({ where: { role: UserRole.CUSTOMER } }),
-      shipmentRepo.count(),
+    // Filter strictly for non-admins if scope is DEPARTMENT
+    const isGlobalAdmin = actor.role === UserRole.SUPERADMIN || actor.role === UserRole.ADMIN;
+    const deptId = !isGlobalAdmin && scope === PermissionScope.DEPARTMENT ? departmentId : undefined;
+
+    // 1. Basic Counts
+    const staffCountQuery = userRepo.createQueryBuilder("u").where("u.isActive = true");
+    if (deptId) {
+      // Note: mapping through UserDepartmentRole for staff count in a specific dept
+      staffCountQuery
+        .innerJoin("u.departmentRoles", "udr")
+        .andWhere("udr.departmentId = :deptId", { deptId });
+    }
+
+    const shipmentQuery = shipmentRepo.createQueryBuilder("s");
+    if (deptId) {
+      shipmentQuery.where("s.departmentId = :deptId", { deptId });
+    }
+
+    const [totalStaff, totalShipments] = await Promise.all([
+      staffCountQuery.getCount(),
+      shipmentQuery.getCount(),
     ]);
 
-    // Shipment status counts
-    const statusCounts = await shipmentRepo
-      .createQueryBuilder("s")
+    // 2. Shipment stats
+    const statusCounts = await shipmentQuery
       .select("s.status", "status")
       .addSelect("COUNT(*)", "count")
       .groupBy("s.status")
       .getRawMany();
 
+    const typeCounts = await shipmentQuery
+      .select("s.type", "type")
+      .addSelect("COUNT(*)", "count")
+      .groupBy("s.type")
+      .getRawMany();
+
     const statusMap: Record<string, number> = {
       [ShipmentStatus.PENDING]: 0,
       [ShipmentStatus.IN_TRANSIT]: 0,
-      [ShipmentStatus.ARRIVED]: 0,
+      [ShipmentStatus.CUSTOMS]: 0,
       [ShipmentStatus.DELIVERED]: 0,
       [ShipmentStatus.ON_HOLD]: 0,
       [ShipmentStatus.CANCELLED]: 0,
     };
     for (const row of statusCounts) {
-      if (statusMap[row.status] !== undefined) {
-        statusMap[row.status] = Number(row.count);
-      }
+      if (statusMap[row.status] !== undefined) statusMap[row.status] = Number(row.count);
     }
 
-    // Revenue
-    const revenueResult = await paymentRepo
-      .createQueryBuilder("p")
-      .select("COALESCE(SUM(p.amount), 0)", "totalRevenue")
-      .where("p.status = 'SUCCESS'")
-      .getRawOne();
+    let exportsCount = 0, importsCount = 0;
+    for (const row of typeCounts) {
+      if (row.type === "export") exportsCount = Number(row.count);
+      if (row.type === "import") importsCount = Number(row.count);
+    }
+
+    // 3. Revenue
+    const paymentQuery = paymentRepo.createQueryBuilder("p").select("COALESCE(SUM(p.amount), 0)", "totalRevenue");
+    paymentQuery.where("p.status = 'SUCCESS'");
+    if (deptId) {
+        // Find payments linked to shipments within this department
+        paymentQuery.innerJoin("p.shipment", "s").andWhere("s.departmentId = :deptId", { deptId });
+    }
+    const revenueResult = await paymentQuery.getRawOne();
+
+    // 4. Recent Activities (last 15 audit log entries)
+    const auditQuery = auditRepo.createQueryBuilder("a").leftJoinAndSelect("a.performer", "u");
+    if (deptId) {
+      auditQuery.where("a.departmentId = :deptId", { deptId });
+    }
+    const recentActivities = await auditQuery.orderBy("a.performedAt", "DESC").take(15).getMany();
+
+    // 5. Recent Shipments (last 15)
+    if (deptId) shipmentQuery.leftJoinAndSelect("s.assignedOfficer", "officer").leftJoinAndSelect("s.department", "dept");
+    else shipmentQuery.leftJoinAndSelect("s.assignedOfficer", "officer").leftJoinAndSelect("s.department", "dept");
+    
+    const recentShipments = await shipmentQuery.orderBy("s.createdAt", "DESC").take(15).getMany();
+
+    const dashboardData = {
+      kpis: {
+        totalShipments,
+        exports: exportsCount,
+        imports: importsCount,
+        pending: statusMap[ShipmentStatus.PENDING],
+        inTransit: statusMap[ShipmentStatus.IN_TRANSIT],
+        customs: statusMap[ShipmentStatus.CUSTOMS],
+        delivered: statusMap[ShipmentStatus.DELIVERED],
+        onHold: statusMap[ShipmentStatus.ON_HOLD],
+        cancelled: statusMap[ShipmentStatus.CANCELLED],
+        activeStaff: totalStaff,
+        totalRevenue: Number(revenueResult.totalRevenue),
+      },
+      recentActivities: recentActivities.map((a) => ({
+        id: a.id,
+        action: a.action,
+        entityType: a.entityType,
+        entityId: a.entityId,
+        performedBy: a.performer ? { id: a.performer.id, name: `${a.performer.firstName} ${a.performer.lastName}` } : null,
+        timestamp: a.performedAt,
+        details: a.actionDetails,
+      })),
+      recentShipments,
+    };
+
+    appCache.set(cacheKey, dashboardData);
 
     return res.status(200).json({
       status: "success",
-      data: {
-        totalUsers,
-        totalOrders,
-        inTransit: statusMap[ShipmentStatus.IN_TRANSIT],
-        pending: statusMap[ShipmentStatus.PENDING],
-        processing: statusMap[ShipmentStatus.ON_HOLD],
-        arrived: statusMap[ShipmentStatus.ARRIVED],
-        delivered: statusMap[ShipmentStatus.DELIVERED],
-        cancelled: statusMap[ShipmentStatus.CANCELLED],
-        totalRevenue: Number(revenueResult.totalRevenue),
-        // Chart data
-        pieChart: [
-          {
-            label: "Pending",
-            value: statusMap[ShipmentStatus.PENDING],
-            color: "#64748b",
-          },
-          {
-            label: "In Transit",
-            value: statusMap[ShipmentStatus.IN_TRANSIT],
-            color: "#3b82f6",
-          },
-          {
-            label: "Arrived",
-            value: statusMap[ShipmentStatus.ARRIVED],
-            color: "#14b8a6",
-          },
-          {
-            label: "Delivered",
-            value: statusMap[ShipmentStatus.DELIVERED],
-            color: "#10b981",
-          },
-        ],
-        barChart: Object.entries(statusMap).map(([label, value]) => ({
-          label,
-          value,
-        })),
-      },
+      data: dashboardData,
     });
   } catch (err) {
     console.error("[AdminController.getDashboardStats]", err);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Internal server error." });
+    return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }
 
-// ─── Admin: Monthly Report ────────────────────────────────────────────────────
+
+// ─── Admin: Monthly Report ─────────────────────────────────────────────────────
 
 export async function getMonthlyReport(req: Request, res: Response) {
   try {
@@ -113,8 +161,8 @@ export async function getMonthlyReport(req: Request, res: Response) {
     const paymentRepo = AppDataSource.getRepository(Payment);
     const userRepo = AppDataSource.getRepository(User);
 
-    const [totalBookings, newCustomers, deliveredCount] = await Promise.all([
-      // Total bookings this month
+    const [totalBookings, newStaff, deliveredCount] = await Promise.all([
+      // Total shipments this month
       shipmentRepo
         .createQueryBuilder("s")
         .where("s.createdAt BETWEEN :start AND :end", {
@@ -122,11 +170,10 @@ export async function getMonthlyReport(req: Request, res: Response) {
           end: endDate,
         })
         .getCount(),
-      // New customers this month
+      // New staff this month
       userRepo
         .createQueryBuilder("u")
-        .where("u.role = :role", { role: UserRole.CUSTOMER })
-        .andWhere("u.createdAt BETWEEN :start AND :end", {
+        .where("u.createdAt BETWEEN :start AND :end", {
           start: startDate,
           end: endDate,
         })
@@ -154,8 +201,6 @@ export async function getMonthlyReport(req: Request, res: Response) {
       .getRawOne();
 
     const totalRevenue = Number(revenueResult.revenue);
-
-    // Compute report readiness %: deliveries vs bookings
     const reportReady =
       totalBookings === 0
         ? 0
@@ -167,8 +212,9 @@ export async function getMonthlyReport(req: Request, res: Response) {
         year,
         month,
         totalBookings,
-        newCustomers,
+        newStaff,
         totalRevenue,
+        deliveredCount,
         reportReady,
       },
     });
@@ -177,5 +223,100 @@ export async function getMonthlyReport(req: Request, res: Response) {
     return res
       .status(500)
       .json({ status: "error", message: "Internal server error." });
+  }
+}
+
+// ─── Admin: List all users (staff) ────────────────────────────────────────────
+
+export async function listAllUsers(req: Request, res: Response) {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const search = (req.query.search as string) || "";
+    const role = req.query.role as UserRole | undefined;
+
+    const repo = AppDataSource.getRepository(User);
+    const qb = repo.createQueryBuilder("u");
+
+    if (search) {
+      qb.where(
+        "(u.firstName ILIKE :s OR u.lastName ILIKE :s OR u.email ILIKE :s)",
+        { s: `%${search}%` },
+      );
+    }
+    if (role && Object.values(UserRole).includes(role)) {
+      qb.andWhere("u.role = :role", { role });
+    }
+
+    qb.orderBy("u.createdAt", "DESC").skip(skip).take(limit);
+    const [users, total] = await qb.getManyAndCount();
+
+    const sanitized = users.map(({ password, refreshToken, refreshTokenExpiresAt, ...rest }) => rest);
+
+    return res.status(200).json({
+      status: "success",
+      data: sanitized,
+      meta: paginate(total, page, limit),
+    });
+  } catch (err) {
+    console.error("[AdminController.listAllUsers]", err);
+    return res
+      .status(500)
+      .json({ status: "error", message: "Internal server error." });
+  }
+}
+
+/**
+ * GET Staff Performance Analytics
+ * Returns a list of staff members with their shipment handling statistics.
+ */
+export async function getStaffPerformance(req: Request, res: Response) {
+  try {
+    const actor = (req as any).user as User;
+    const { scope, departmentId } = (req as any).permissionScope || {};
+
+    const cacheKey = `staff_performance_${departmentId || "global"}_${actor.id}`;
+    const cached = appCache.get(cacheKey);
+    if (cached) return res.status(200).json({ status: "success", data: cached });
+
+    const userRepo = AppDataSource.getRepository(User);
+    
+    const qb = userRepo.createQueryBuilder("u")
+      .leftJoin("u.assignedShipments", "s")
+      .select([
+        "u.id as id",
+        "u.firstName as firstName",
+        "u.lastName as lastName",
+        "u.email as email",
+        "COUNT(s.id) as totalAssigned",
+        "COUNT(CASE WHEN s.status = 'delivered' THEN 1 END) as deliveredCount",
+        "COUNT(CASE WHEN s.status = 'in_transit' THEN 1 END) as activeCount"
+      ])
+      .where("u.role != :cust", { cust: UserRole.CUSTOMER });
+
+    if (scope === PermissionScope.DEPARTMENT && departmentId) {
+      qb.innerJoin("u.departmentRoles", "udr").andWhere("udr.departmentId = :deptId", { deptId: departmentId });
+    }
+
+    const performance = await qb.groupBy("u.id").orderBy("totalAssigned", "DESC").getRawMany();
+
+    // Map and calculate success rate
+    const data = performance.map(p => ({
+      id: p.id,
+      name: `${p.firstname} ${p.lastname}`,
+      email: p.email,
+      totalAssigned: Number(p.totalassigned),
+      deliveredCount: Number(p.deliveredcount),
+      activeCount: Number(p.activecount),
+      successRate: Number(p.totalassigned) > 0 
+        ? Math.round((Number(p.deliveredcount) / Number(p.totalassigned)) * 100) 
+        : 0
+    }));
+
+    appCache.set(cacheKey, data);
+
+    return res.status(200).json({ status: "success", data });
+  } catch (err) {
+    console.error("[AdminController.getStaffPerformance]", err);
+    return res.status(500).json({ status: "error", message: "Failed to fetch performance stats." });
   }
 }

@@ -28,7 +28,7 @@ export async function bulkImportShipmentsController(req: Request, res: Response)
       });
     }
 
-    const { departmentId, commitMessage, defaultServiceId } = req.body;
+    const { departmentId, commitMessage } = req.body;
 
     if (!commitMessage || String(commitMessage).trim() === "") {
       return res.status(400).json({
@@ -41,8 +41,7 @@ export async function bulkImportShipmentsController(req: Request, res: Response)
       req.file.buffer,
       user.id,
       departmentId,
-      commitMessage,
-      defaultServiceId
+      commitMessage
     );
 
     const statusCode = result.errors.length > 0 && result.inserted === 0 ? 422 : 200;

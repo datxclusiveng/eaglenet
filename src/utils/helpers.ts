@@ -60,3 +60,29 @@ export function sanitizeUser(user: any): any {
 export function sanitizeUsers(users: any[]): any[] {
   return users.map(sanitizeUser);
 }
+/**
+ * Pick specific fields from an object.
+ * Used for the ?fields=id,name feature.
+ */
+export function pickFields(obj: any, fields: string | string[]): any {
+  if (!obj || !fields || fields.length === 0) return obj;
+  
+  const allowed = Array.isArray(fields) ? fields : fields.split(",").map(f => f.trim());
+  const result: any = {};
+  
+  allowed.forEach(field => {
+    if (Object.prototype.hasOwnProperty.call(obj, field)) {
+      result[field] = obj[field];
+    }
+  });
+
+  return Object.keys(result).length > 0 ? result : obj;
+}
+
+/**
+ * Pick specific fields from an array of objects.
+ */
+export function pickFieldsMany(arr: any[], fields: string | string[]): any[] {
+  if (!fields || fields.length === 0) return arr;
+  return arr.map(item => pickFields(item, fields));
+}

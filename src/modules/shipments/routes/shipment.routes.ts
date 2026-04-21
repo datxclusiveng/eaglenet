@@ -4,6 +4,7 @@ import {
   trackShipment,
   getShipment,
   listShipments,
+  updateShipment,
   updateShipmentStatus,
   getServices,
   getLocations,
@@ -11,12 +12,14 @@ import {
   getStatusHistory,
   sendManualOfficerEmail,
   createInternalNote,
+  uploadDeliveryProof,
+  exportShipments,
 } from "../controllers/shipment.controller";
 import { updateCustomsStatus, getCustomsDetail } from "../controllers/customs.controller";
 import { bulkImportShipmentsController } from "../controllers/bulk-import.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
-import { bulkImportUpload } from "../../../middleware/upload.middleware";
+import { bulkImportUpload, uploadMiddleware } from "../../../middleware/upload.middleware";
 
 const router = Router();
 
@@ -35,13 +38,16 @@ router.use(...auth);
 // Dashboard stats
 router.get("/stats", authorize("shipment", "read"), getShipmentStats);
 
+// Export shipments
+router.get("/export", authorize("shipment", "read"), exportShipments);
+
 // List all shipments
 router.get("/", authorize("shipment", "read"), listShipments);
 
 // Single shipment details
 router.get("/:id", authorize("shipment", "read"), getShipment);
 
-// Status history
+// Status history / full activity log
 router.get("/:id/history", authorize("shipment", "read"), getStatusHistory);
 
 // Customs logic
@@ -51,8 +57,19 @@ router.patch("/:shipmentId/customs", authorize("shipment", "update"), updateCust
 // Create shipment
 router.post("/", authorize("shipment", "create"), createShipment);
 
-// Update status
+// Update shipment field details
+router.patch("/:id", authorize("shipment", "update"), updateShipment);
+
+// Update status only
 router.patch("/:id/status", authorize("shipment", "update"), updateShipmentStatus);
+
+// Upload delivery proof
+router.post(
+  "/:id/delivery-proof",
+  authorize("shipment", "update"),
+  uploadMiddleware.fields([{ name: "signature" }, { name: "photo" }]),
+  uploadDeliveryProof
+);
 
 // Internal notes
 router.post("/:id/notes", authorize("shipment", "update"), createInternalNote);

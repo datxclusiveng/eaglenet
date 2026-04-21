@@ -18,6 +18,12 @@ export enum PaymentStatus {
   FAILED = "FAILED",
 }
 
+export enum PaymentMethod {
+  TRANSFER = "transfer",
+  CASH = "cash",
+  CARD = "card",
+}
+
 @Entity("payments")
 export class Payment {
   @PrimaryGeneratedColumn("uuid")
@@ -34,6 +40,17 @@ export class Payment {
   @Column({ type: "decimal", precision: 12, scale: 2 })
   amount!: number;
 
+  @Column({ default: "NGN" })
+  currency!: string;
+
+  @Column({
+    name: "payment_method",
+    type: "enum",
+    enum: PaymentMethod,
+    nullable: true,
+  })
+  paymentMethod?: PaymentMethod;
+
   @Column({
     type: "enum",
     enum: PaymentStatus,
@@ -41,6 +58,23 @@ export class Payment {
   })
   status!: PaymentStatus;
 
+  /** Timestamp when payment was confirmed / failed */
+  @Column({ name: "processed_at", type: "timestamp", nullable: true })
+  processedAt?: Date;
+
+  /** The staff member who confirmed / processed the payment */
+  @Column({ name: "processed_by_id", nullable: true })
+  processedById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "processed_by_id" })
+  processedBy?: User;
+
+  /** Optional notes or memo for the payment */
+  @Column({ type: "text", nullable: true })
+  notes?: string;
+
+  /** Paystack-specific fields — kept for backward compat */
   @Column({ name: "paystack_access_code", nullable: true })
   paystackAccessCode?: string;
 
@@ -61,9 +95,7 @@ export class Payment {
   @JoinColumn({ name: "shipment_id" })
   shipment?: Shipment;
 
-  /**
-   * Optional — when this payment is linked to a formal invoice.
-   */
+  /** Optional — when this payment is linked to a formal invoice */
   @Index()
   @Column({ name: "invoice_id", nullable: true })
   invoiceId?: string;

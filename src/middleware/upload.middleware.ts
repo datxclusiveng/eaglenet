@@ -41,6 +41,30 @@ export const documentUpload = multer({
 });
 
 /**
+ * uploadMiddleware — general-purpose upload for message attachments, delivery proof, etc.
+ * Accepts: images, PDF, Word, Excel, and common archive types.
+ * Max size: 20MB.
+ */
+export const uploadMiddleware = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = [
+      "image/jpeg", "image/png", "image/webp", "image/gif",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+      "application/zip",
+    ];
+    if (allowedMimes.includes(file.mimetype)) return cb(null, true);
+    cb(new Error("Unsupported file type for attachment."));
+  },
+});
+
+/**
  * bulkImportUpload — dedicated multer instance for bulk Excel/CSV imports only.
  */
 export const bulkImportUpload = multer({

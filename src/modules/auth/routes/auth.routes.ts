@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { register, login, me, refresh, logout } from "../controllers/auth.controller";
+import { register, login, me, refresh, logout, changePassword } from "../controllers/auth.controller";
 import { auth } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { registerSchema, loginSchema } from "../../../utils/validators";
@@ -34,5 +34,12 @@ router.post("/refresh", refresh);
  * POST /api/auth/logout
  */
 router.post("/logout", ...auth, logout);
+
+/**
+ * PATCH /api/auth/change-password
+ * Body: { currentPassword, newPassword }
+ * Invalidates all existing sessions on success.
+ */
+router.patch("/change-password", ...auth, changePassword);
 
 export default router;

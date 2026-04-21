@@ -6,10 +6,13 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   OneToMany,
+  OneToOne,
   Index,
 } from "typeorm";
 import { Exclude } from "class-transformer";
 import { UserDepartmentRole } from "./UserDepartmentRole";
+import { NotificationPreference } from "./NotificationPreference";
+import { Shipment } from "../../shipments/entities/Shipment";
 
 export enum UserRole {
   CUSTOMER = "CUSTOMER",
@@ -58,6 +61,14 @@ export class User {
   })
   outstandingBalance!: number;
 
+  /** Timestamp of the user's most recent successful login */
+  @Column({ name: "last_login", type: "timestamp", nullable: true })
+  lastLogin?: Date;
+
+  /** IP address from the user's most recent successful login */
+  @Column({ name: "last_login_ip", nullable: true })
+  lastLoginIp?: string;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
 
@@ -76,4 +87,13 @@ export class User {
 
   @OneToMany(() => UserDepartmentRole, (udr) => udr.user)
   departmentRoles!: UserDepartmentRole[];
+
+  @OneToOne(() => NotificationPreference, (pref) => pref.user)
+  notificationPreferences?: NotificationPreference;
+
+  @OneToMany(() => Shipment, (shipment) => shipment.assignedOfficer)
+  assignedShipments!: Shipment[];
+
+  @OneToMany(() => Shipment, (shipment) => shipment.createdBy)
+  createdShipments!: Shipment[];
 }

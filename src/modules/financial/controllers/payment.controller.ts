@@ -5,6 +5,7 @@ import { Payment, PaymentStatus } from "../entities/Payment";
 import { Shipment } from "../../shipments/entities/Shipment";
 import { User } from "../../users/entities/User";
 import { sendPushNotification } from "../../notifications/services/push-notification.service";
+import { NotificationType } from "../../notifications/entities/Notification";
 import { generateEglId, paginate, parsePagination } from "../../../utils/helpers";
 import { logActivity } from "../../shipments/services/activity.service";
 import { reconcileInvoice } from "../services/invoice.service";
@@ -85,7 +86,7 @@ export async function paystackWebhook(req: Request, res: Response) {
         }
 
         // Push Notif
-        sendPushNotification(user.id, "Payment Successful 💳", `Payment Ref: ${ref} confirmed.`, "PAYMENT", `/payments/${payment.id}`).catch(console.error);
+        sendPushNotification(user.id, "Payment Successful 💳", `Payment Ref: ${ref} confirmed.`, NotificationType.STATUS_UPDATE, `/payments/${payment.id}`).catch(console.error);
 
         // Auto-reconcile invoice if the payment was attached to one
         if (payment.invoiceId) {

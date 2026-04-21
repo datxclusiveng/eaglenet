@@ -28,6 +28,8 @@ import adminRoutes from "./modules/auth/routes/admin.routes";
 import serviceRoutes from "./modules/shipments/routes/service.routes";
 import departmentRoutes from "./modules/departments/routes/department.routes";
 import documentRoutes from "./modules/documents/routes/document.routes";
+import messageRoutes from "./modules/messages/routes/message.routes";
+import notificationRoutes from "./modules/notifications/routes/notification.routes";
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +45,8 @@ if (
   startKeepAliveJob();
 }
 
+import { responseStandardizer } from "./middleware/response-standardizer";
+
 // Trust the first proxy (Render)
 app.set("trust proxy", 1);
 
@@ -55,6 +59,15 @@ const logger = winston.createLogger({
     winston.format.json(),
   ),
   transports: [new winston.transports.Console()],
+});
+
+// ─── RESPONSE STANDARDIZATION & FIELDS ─────────────────────────────────────────
+app.use(responseStandardizer);
+app.use((req, res, next) => {
+  if (req.query.fields) {
+    (res as any).selectedFields = (req.query.fields as string).split(",");
+  }
+  next();
 });
 
 // ─── SECURITY MIDDLEWARE ──────────────────────────────────────────────────────
@@ -146,6 +159,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/documents", documentRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {

@@ -1,5 +1,5 @@
 import { AppDataSource } from "../../../../database/data-source";
-import { Notification } from "../entities/Notification";
+import { Notification, NotificationType } from "../entities/Notification";
 import { getIO } from "../../../socket";
 
 /**
@@ -9,7 +9,7 @@ export async function sendPushNotification(
   userId: string,
   title: string,
   message: string,
-  type: string = "SYSTEM",
+  type: NotificationType = NotificationType.SYSTEM,
   actionUrl: string = ""
 ) {
   try {
@@ -45,7 +45,7 @@ export async function sendPushNotification(
 export async function broadcastNotification(
   title: string,
   message: string,
-  type: string = "SYSTEM",
+  type: NotificationType = NotificationType.SYSTEM,
   actionUrl: string = ""
 ) {
   try {

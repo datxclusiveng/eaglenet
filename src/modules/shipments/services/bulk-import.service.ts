@@ -1,10 +1,9 @@
 import * as XLSX from "xlsx";
 import { AppDataSource } from "../../../../database/data-source";
 import { Shipment, ShipmentStatus, ShipmentType } from "../entities/Shipment";
-import { Service } from "../entities/Service";
+import { MoreThanOrEqual } from "typeorm";
 
 const shipmentRepo = () => AppDataSource.getRepository(Shipment);
-const serviceRepo = () => AppDataSource.getRepository(Service);
 
 // ────────────────────────────────────────────────────────────────────────────
 // Expected column headers in the uploaded spreadsheet (case-insensitive match)
@@ -18,21 +17,16 @@ export interface BulkImportResult {
   errors: Array<{ row: number; reason: string }>;
 }
 
+import { generateTrackingNumber } from "../utils/generators";
+
 /**
  * Parses an Excel or CSV buffer and inserts shipment records in bulk.
- *
- * @param buffer       Raw file buffer from multer memory storage
- * @param staffId      ID of the staff member performing the import
- * @param departmentId Owning department (optional)
- * @param commitMessage  Explains why this batch was imported
- * @param defaultServiceId  Fallback service UUID if not specified in a row
  */
 export async function bulkImportShipments(
   buffer: Buffer,
   staffId: string,
-  _departmentId?: string,
-  commitMessage?: string,
-  defaultServiceId?: string
+  departmentId?: string,
+  commitMessage?: string
 ): Promise<BulkImportResult> {
   const result: BulkImportResult = {
     total: 0,
@@ -43,70 +37,66 @@ export async function bulkImportShipments(
 
   // ── 1. Parse the workbook ────────────────────────────────────────────────
   const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
-  const sheetName = workbook.SheetNames[0]; // Use first sheet
+  const sheetName = workbook.SheetNames[0]; 
   const worksheet = workbook.Sheets[sheetName];
   const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, {
-    defval: "",  // empty cells become empty string
-    raw: false,  // return formatted values, not raw numbers
+    defval: "",
+    raw: false,
   });
 
   result.total = rows.length;
 
-  // ── 2. Resolve default service ───────────────────────────────────────────
-  let defaultService: Service | null = null;
-  if (defaultServiceId) {
-    defaultService = await serviceRepo().findOneBy({ id: defaultServiceId });
-  }
+  // ── 2. Get today's count for tracking numbers ──────────────────────────
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let dailyCount = await shipmentRepo().count({ 
+    where: { createdAt: MoreThanOrEqual(today) } 
+  });
 
   // ── 3. Process each row ──────────────────────────────────────────────────
   const toInsert: Shipment[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const rowNumber = i + 2; // 1-indexed, accounting for header row
+    const rowNumber = i + 2;
 
-    // Normalise keys: trim whitespace and lowercase for matching
     const norm: Record<string, string> = {};
     for (const [k, v] of Object.entries(row)) {
       norm[k.trim()] = String(v ?? "").trim();
     }
 
     // ── Validation ─────────────────────────────────────────────────────────
-    type MissingArray = string[];
-    const missing: MissingArray = REQUIRED_COLS.filter((col) => !norm[col]);
+    const missing = REQUIRED_COLS.filter((col) => !norm[col]);
     if (missing.length > 0) {
       result.errors.push({ row: rowNumber, reason: `Missing required fields: ${missing.join(", ")}` });
       result.skipped++;
       continue;
     }
 
-    // Resolve service: row-level takes precedence over default
-    let service = defaultService;
-    if (norm["serviceId"]) {
-      service = await serviceRepo().findOneBy({ id: norm["serviceId"] });
-      if (!service) {
-        result.errors.push({ row: rowNumber, reason: `Service ID "${norm["serviceId"]}" not found` });
-        result.skipped++;
-        continue;
-      }
-    }
+    const type = (norm["type"]?.toLowerCase() === "export") ? ShipmentType.EXPORT : ShipmentType.IMPORT;
 
     // ── Build Shipment Record ──────────────────────────────────────────────
     const shipment = shipmentRepo().create({
-      trackingNumber: `EGL-IMP-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      type: ShipmentType.AIR_FREIGHT,
+      trackingNumber: generateTrackingNumber(type, dailyCount + 1),
+      shipmentName: norm["shipmentName"] || norm["fullName"] || "Bulk Import Shipment",
+      type,
       clientName: norm["fullName"] || "Unknown",
       clientEmail: norm["email"].toLowerCase(),
       clientPhone: norm["phoneNumber"],
       originCity: norm["origin"],
       destinationCity: norm["destination"],
-      status: (norm["status"] as ShipmentStatus) || ShipmentStatus.DELIVERED,
+      status: (norm["status"] as ShipmentStatus) || ShipmentStatus.PENDING,
       assignedOfficerId: staffId,
-      notes: commitMessage || "Bulk import",
+      departmentId: departmentId,
+      createdById: staffId,
+      internalNotes: commitMessage || "Bulk imported by admin",
+      notes: norm["notes"] || "",
     });
 
     toInsert.push(shipment);
+    dailyCount++;
   }
+
 
   // ── 4. Batch insert (chunks of 100 to avoid DB limits) ──────────────────
   const CHUNK_SIZE = 100;

@@ -18,14 +18,14 @@ import { Department } from "../../departments/entities/Department";
 import { ShipmentLog } from "./ShipmentLog";
 
 export enum ShipmentType {
-  AIR_FREIGHT = "air_freight",
-  SEA_FREIGHT = "sea_freight",
+  EXPORT = "export",
+  IMPORT = "import",
 }
 
 export enum ShipmentStatus {
   PENDING = "pending",
   IN_TRANSIT = "in_transit",
-  ARRIVED = "arrived",
+  CUSTOMS = "customs",
   DELIVERED = "delivered",
   ON_HOLD = "on_hold",
   CANCELLED = "cancelled",
@@ -36,9 +36,18 @@ export class Shipment {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  /** Human-readable tracking / shipment ID e.g. EGL-EXP-240001 */
   @Index()
   @Column({ name: "tracking_number", unique: true })
   trackingNumber!: string;
+
+  /** Internal description / reference for this shipment */
+  @Column({ name: "shipment_name" })
+  shipmentName!: string;
+
+  /** Optional internal reference code */
+  @Column({ name: "internal_reference", nullable: true })
+  internalReference?: string;
 
   @Column({
     type: "enum",
@@ -54,14 +63,22 @@ export class Shipment {
   })
   status!: ShipmentStatus;
 
-  @Column({ name: "client_name" })
-  clientName!: string;
+  // ─── Client / Recipient ────────────────────────────────────────────────────
+  @Column({ name: "client_name", nullable: true })
+  clientName?: string;
 
-  @Column({ name: "client_email" })
-  clientEmail!: string;
+  @Column({ name: "client_email", nullable: true })
+  clientEmail?: string;
 
-  @Column({ name: "client_phone" })
-  clientPhone!: string;
+  @Column({ name: "client_phone", nullable: true })
+  clientPhone?: string;
+
+  // ─── Route ────────────────────────────────────────────────────────────────
+  @Column({ name: "pickup_address", type: "text", nullable: true })
+  pickupAddress?: string;
+
+  @Column({ name: "delivery_address", type: "text", nullable: true })
+  deliveryAddress?: string;
 
   @Column({ name: "origin_country", nullable: true })
   originCountry?: string;
@@ -75,15 +92,7 @@ export class Shipment {
   @Column({ name: "destination_city", nullable: true })
   destinationCity?: string;
 
-  @Column({ type: "date", nullable: true })
-  eta?: string;
-
-  @Column({ name: "actual_arrival_date", type: "date", nullable: true })
-  actualArrivalDate?: string;
-
-  @Column({ type: "text", nullable: true })
-  description?: string;
-
+  // ─── Physical Details ──────────────────────────────────────────────────────
   @Column({
     name: "weight_kg",
     type: "decimal",
@@ -92,6 +101,12 @@ export class Shipment {
     nullable: true,
   })
   weightKg?: number;
+
+  /**
+   * Physical dimensions in cm: { length, width, height }
+   */
+  @Column({ type: "jsonb", nullable: true, default: {} })
+  dimensions?: { length: number; width: number; height: number };
 
   @Column({
     name: "volume_cbm",
@@ -102,6 +117,7 @@ export class Shipment {
   })
   volumeCbm?: number;
 
+  // ─── Carrier / Flight Info ─────────────────────────────────────────────────
   @Column({ name: "airline_or_vessel", nullable: true })
   airlineOrVessel?: string;
 
@@ -111,15 +127,56 @@ export class Shipment {
   @Column({ name: "departure_date", type: "date", nullable: true })
   departureDate?: string;
 
+  // ─── Dates ────────────────────────────────────────────────────────────────
+  /** ETA (customer-facing) */
+  @Column({ type: "date", nullable: true })
+  eta?: string;
+
+  /** Expected delivery date (internal planning) */
+  @Column({ name: "expected_delivery_date", type: "date", nullable: true })
+  expectedDeliveryDate?: string;
+
+  /** Set when status changes to DELIVERED */
+  @Column({ name: "actual_delivery_date", type: "date", nullable: true })
+  actualDeliveryDate?: string;
+
+  // ─── Notes ────────────────────────────────────────────────────────────────
+  @Column({ type: "text", nullable: true })
+  description?: string;
+
+  /** Internal staff notes — not shown to client */
+  @Column({ name: "internal_notes", type: "text", nullable: true })
+  internalNotes?: string;
+
   @Column({ type: "text", nullable: true })
   notes?: string;
 
+  // ─── Relationships ────────────────────────────────────────────────────────
+  /** Originating / responsible department */
+  @Index()
+  @Column({ name: "department_id", nullable: true })
+  departmentId?: string;
+
+  @ManyToOne(() => Department, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "department_id" })
+  department?: Department;
+
+  /** Staff member assigned to handle / deliver the shipment */
   @Column({ name: "assigned_officer_id", nullable: true })
   assignedOfficerId?: string;
 
   @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
   @JoinColumn({ name: "assigned_officer_id" })
   assignedOfficer?: User;
+
+  /** Staff member who created the shipment record */
+  @Index()
+  @Column({ name: "created_by_id", nullable: true })
+  createdById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "created_by_id" })
+  createdBy?: User;
 
   @Column({ name: "invoice_id", nullable: true })
   invoiceId?: string;
@@ -145,6 +202,7 @@ export class Shipment {
   @OneToMany(() => ShipmentLog, (log) => log.shipment)
   logs!: ShipmentLog[];
 
+  /** Collaborating departments (cross-department visibility) */
   @ManyToMany(() => Department)
   @JoinTable({
     name: "shipment_collaborators",
