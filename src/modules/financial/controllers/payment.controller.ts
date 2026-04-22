@@ -6,7 +6,7 @@ import { Shipment } from "../../shipments/entities/Shipment";
 import { User } from "../../users/entities/User";
 import { sendPushNotification } from "../../notifications/services/push-notification.service";
 import { NotificationType } from "../../notifications/entities/Notification";
-import { generateEglId, paginate, parsePagination } from "../../../utils/helpers";
+import { generateEglId, paginate, parsePagination, sanitizeUser } from "../../../utils/helpers";
 import { logActivity } from "../../shipments/services/activity.service";
 import { reconcileInvoice } from "../services/invoice.service";
 
@@ -150,6 +150,74 @@ export async function getPayment(req: Request, res: Response) {
     return res.status(200).json({ status: "success", data: payment });
   } catch (err) {
     return res.status(500).json({ status: "error" });
+  }
+}
+
+/**
+ * Manual processing for Payment Department
+ * PATCH /api/payments/:id/process
+ */
+export async function processManualPayment(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body; // status: SUCCESS | FAILED
+    const actor = (req as any).user as User;
+
+    if (![PaymentStatus.SUCCESS, PaymentStatus.FAILED].includes(status)) {
+      return res.status(400).json({ status: "error", message: "Invalid status. Use SUCCESS or FAILED." });
+    }
+
+    const payment = await repo().findOne({
+      where: { id: id as string },
+      relations: ["user", "shipment"],
+    });
+
+    if (!payment) return res.status(404).json({ status: "error", message: "Payment record not found." });
+    if (payment.status !== PaymentStatus.PENDING) {
+      return res.status(400).json({ status: "error", message: `Payment is already ${payment.status}.` });
+    }
+
+    payment.status = status;
+    payment.processedById = actor.id;
+    payment.processedAt = new Date();
+    payment.notes = notes || payment.notes;
+
+    await repo().save(payment);
+
+    // If successful, update user balance and log success
+    if (status === PaymentStatus.SUCCESS) {
+      const user = payment.user;
+      user.outstandingBalance = Math.max(0, Number(user.outstandingBalance) - payment.amount);
+      await AppDataSource.getRepository(User).save(user);
+
+      if (payment.shipmentId) {
+        await logActivity(payment.shipmentId, actor.id, "payment_verified_manual", { 
+          metadata: { amount: payment.amount, processedBy: actor.email } 
+        });
+      }
+
+      if (payment.invoiceId) {
+        await reconcileInvoice(payment.invoiceId);
+      }
+    } else {
+      if (payment.shipmentId) {
+        await logActivity(payment.shipmentId, actor.id, "payment_rejected_manual", { 
+          metadata: { reason: notes } 
+        });
+      }
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: `Payment ${status.toLowerCase()} successfully.`,
+      data: {
+        ...payment,
+        user: sanitizeUser(payment.user)
+      },
+    });
+  } catch (err) {
+    console.error("[PaymentController.processManual]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }
 

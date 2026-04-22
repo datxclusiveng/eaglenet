@@ -6,9 +6,12 @@ import {
   myPayments,
   listPayments,
   getPayment,
+  processManualPayment,
 } from "../controllers/payment.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
+import { validate } from "../../../middleware/validate.middleware";
+import { uuidParamSchema } from "../../../utils/validators";
 import express from "express";
 
 const router = Router();
@@ -53,6 +56,12 @@ router.get("/", ...adminOnly, authorize("payment", "read"), listPayments);
  * Admin: Single payment detail
  * GET /api/payments/:id
  */
-router.get("/:id", ...adminOnly, authorize("payment", "read"), getPayment);
+router.get("/:id", validate(uuidParamSchema), ...adminOnly, authorize("payment", "read"), getPayment);
+
+/**
+ * Admin/Payment Dept: Manually accept or reject a payment
+ * PATCH /api/payments/:id/process
+ */
+router.patch("/:id/process", validate(uuidParamSchema), ...adminOnly, authorize("payment", "update"), processManualPayment);
 
 export default router;

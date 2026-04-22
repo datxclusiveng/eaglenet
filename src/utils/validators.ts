@@ -1,6 +1,18 @@
 import { z } from "zod";
 import { InvoiceStatus } from "../modules/financial/entities/Invoice";
 
+export const uuidParamSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid ID format. Must be a valid UUID."),
+  }),
+});
+
+export const shipmentIdParamSchema = z.object({
+  params: z.object({
+    shipmentId: z.string().uuid("Invalid Shipment ID format."),
+  }),
+});
+
 export const registerSchema = z.object({
   body: z.object({
     firstName: z.string().min(1, "First name is required"),
@@ -19,22 +31,20 @@ export const loginSchema = z.object({
 
 export const createShipmentSchema = z.object({
   body: z.object({
-    fullName: z.string().min(1, "Full name is required"),
-    email: z.string().email("Invalid email format"),
-    phoneNumber: z.string().min(1, "Phone number is required"),
-    pickupAddress: z.string().min(1, "Pickup address is required"),
-    pickupCity: z.string().min(1, "Pickup city is required"),
-    deliveryAddress: z.string().min(1, "Delivery address is required"),
-    destinationCity: z.string().min(1, "Destination city is required"),
-    preferredPickupDate: z.string().min(1, "Date is required"),
-    preferredPickupTime: z.string().min(1, "Time is required"),
-    weight: z.number().optional(),
-    specialRequirements: z.string().optional(),
-    packageDetails: z.string().optional(),
-    serviceId: z.string().uuid("Invalid service ID").optional(),
+    shipmentName: z.string().min(1, "Shipment name is required"),
+    type: z.enum(["export", "import"]),
+    clientName: z.string().min(1, "Client name is required"),
+    clientEmail: z.string().email("Invalid email format"),
+    clientPhone: z.string().optional(),
+    pickupAddress: z.string().optional(),
+    deliveryAddress: z.string().optional(),
+    originCountry: z.string().optional(),
+    originCity: z.string().optional(),
+    destinationCountry: z.string().optional(),
+    destinationCity: z.string().optional(),
+    weightKg: z.number().optional(),
+    dimensions: z.string().optional(),
     departmentId: z.string().uuid("Invalid department ID").optional(),
-    creationSource: z.enum(["INTERNAL", "STAFF"]).optional(),
-    isExternal: z.boolean().optional(),
   }),
 });
 

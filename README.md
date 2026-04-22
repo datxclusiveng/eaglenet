@@ -92,6 +92,70 @@ POST /api/auth/login
 }
 ```
 
+**Register Request (New Account):**
+```http
+POST /api/auth/register
+```
+```json
+{
+  "firstName": "Adeyemo",
+  "lastName": "Ayomide",
+  "email": "adxe@example.com",
+  "password": "Password123"
+}
+```
+
+**Staff Dashboard:**
+```http
+GET /api/users/me/dashboard
+```
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user": { "id": "uuid", "firstName": "Adeyemo", "role": "STAFF" },
+    "assignedShipments": 5,
+    "totalProcessed": 450000,
+    "recentMessages": [ { "id": "msg-1", "content": "Update on EGL-001" } ]
+  }
+}
+```
+
+**Staff Provisioning (SuperAdmin Only):**
+```http
+POST /api/users/staff
+```
+```json
+{
+  "firstName": "Bolanle",
+  "lastName": "Finance",
+  "email": "finance.ops@eaglenet.com",
+  "phoneNumber": "+2349000000000",
+  "departmentId": "uuid-payment-dept",
+  "roleId": "uuid-payment-officer"
+}
+```
+**Response:** Returns a `tempPassword` for initial login.
+
+**Update Notification Preferences:**
+```http
+PATCH /api/users/me/notifications/preferences
+```
+```json
+{
+  "email": true,
+  "push": false,
+  "statusUpdates": true,
+  "financialAlerts": true
+}
+```
+
+**Explanations:**
+- **Auth Flow:** Stateless JWT authentication. Access tokens are used in the `Authorization: Bearer <token>` header. Refresh tokens are stored in the DB to manage long-lived sessions.
+- **Dashboard:** Returns a summary of current tasks, unread messages, and personal stats for the authenticated staff member.
+- **Preferences:** Allows toggling email, push, and in-app notifications for specific events (e.g., status changes).
+
 ### 2. 🚢 Shipment & Logistics Orchestration
 The primary lifecycle of freight management. Shipments are created and immediately assigned a tracking number.
 
@@ -101,19 +165,18 @@ POST /api/shipments
 ```
 ```json
 {
-  "fullName": "Jane Client",
-  "email": "client@business.com",
-  "phoneNumber": "+2348012345678",
+  "shipmentName": "Industrial Pump Export",
+  "type": "export",
+  "clientName": "Joel Barnabas",
+  "clientEmail": "joelbarnabas589@gmail.com",
+  "clientPhone": "+2348012345678",
   "pickupAddress": "10 Broad Street",
   "pickupCity": "Lagos",
   "deliveryAddress": "45 Airport Road",
   "destinationCity": "Abuja",
-  "preferredPickupDate": "2026-05-01",
-  "preferredPickupTime": "10:00 AM",
-  "weight": 25.5,
-  "specialRequirements": "Keep refrigerated",
-  "departmentId": "uuid-for-logistics-dept",
-  "creationSource": "INTERNAL"
+  "weightKg": 25.5,
+  "description": "Critical spare parts for oil rig",
+  "departmentId": "f960435a-40a4-4f74-815b-db069e877191"
 }
 ```
 
@@ -132,6 +195,34 @@ POST /api/shipments
   "requestId": "uuid"
 }
 ```
+
+**Additional Logistics Workflows:**
+
+**Activity History Ledger:**
+```http
+GET /api/shipments/:id/history
+```
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": [
+    { "action": "created", "timestamp": "2026-04-22T08:00:00Z", "actor": "Jane Admin" },
+    { "action": "document_uploaded", "details": { "fileName": "Waybill.pdf" } }
+  ]
+}
+```
+
+**Bulk Import (Admin):**
+`POST /api/shipments/bulk-import` (Multipart with `file` field)
+
+**Export Data:** `GET /api/shipments/export`
+
+**Explanations:**
+- **Shipment Lifecycle:** Created as `PENDING`, moves to `IN_TRANSIT` (Logistics), then `DELIVERED` (PoD).
+- **PoD (Proof of Delivery):** Closes the shipment loop. Requires a digital signature and a photo of the delivered goods.
+- **Bulk Import:** Designed for enterprise partners. Ingests CSV files and maps them to the `Shipment` entity via the `bulk-import.controller`.
+- **Activity History:** A "Flight Data Recorder" for each shipment. Every status update, note, and document upload is timestamped and logged.
 
 ### 3. 🛂 Customs & Route Updates
 When customs clears a document or it moves cities, a status update is logged.
@@ -202,6 +293,30 @@ file=invoice_doc.pdf
 }
 ```
 
+**EDMS & Archive Flows:**
+
+**Upload New Version:**
+```http
+POST /api/documents/:id/versions
+```
+**Body (Multipart):**
+- `file`: New PDF/Image
+- `comment`: "Updated customs clearance stamp"
+
+**Archive Document:**
+```http
+PATCH /api/documents/:id/meta
+```
+```json
+{
+  "isArchived": true,
+  "adminTags": ["verified", "2026-audit"],
+  "commitMessage": "Moved to long-term storage"
+}
+```
+
+**Explanations:**
+
 ### 5. 💰 Financial Settlement & Invoicing
 Creating a consolidated invoice tying multiple transport charges together.
 
@@ -250,6 +365,49 @@ POST /api/invoices
 }
 ```
 
+**Payment Department & Verification Flows:**
+EagleNet supports both automated Paystack payments and manual verification.
+
+**Initialize Paystack Payment:**
+```http
+POST /api/payments/initialize
+```
+```json
+{
+  "shipmentId": "uuid",
+  "amount": 5000,
+  "callbackUrl": "https://frontend.eaglenet.com/verify"
+}
+```
+
+**Manual Verification (Payment Dept):**
+```http
+PATCH /api/payments/:id/process
+```
+```json
+{ 
+  "status": "SUCCESS", 
+  "notes": "Transfer confirmed in GTB Statement." 
+}
+```
+**Expected Response:**
+```json
+{
+  "success": true,
+  "message": "Payment success successfully.",
+  "data": {
+    "status": "SUCCESS",
+    "processedAt": "2026-04-22T09:13:00Z",
+    "user": { "outstandingBalance": 0, ... }
+  }
+}
+```
+
+**Explanations:**
+- **Paystack Flow:** Automated. `initialize` returns a Paystack URL. `verify` or `webhook` confirms the transaction and auto-updates the User's `outstandingBalance`.
+- **Payment Dept (Manual):** For transfers or cash. Staff upload a receipt to the Document module, then "Accept" the payment here. This ensures human oversight on high-value settlements.
+- **Reconciliation:** Success in either flow triggers `reconcileInvoice()`, which balances the books and updates shipment flags.
+
 ### 6. ⚖️ Forensic Actions (Audit Subsystem)
 All administrative or sensitive state changes are recorded immutably. Though you don't POST to an audit endpoint, querying it looks like this:
 
@@ -276,7 +434,145 @@ All administrative or sensitive state changes are recorded immutably. Though you
 }
 ```
 
-### 7. 📡 Real-time Communication & WebSockets
+### 7. 🏢 Departmental Governance & Org Structure
+Departments define the collaborative boundaries. A department has a supervisor, a dedicated email, and its own staff roster.
+
+**Create Department Request (SuperAdmin Only):**
+```http
+POST /api/departments
+```
+```json
+{
+  "name": "Customs Operations",
+  "email": "customs@eaglenet.com",
+  "supervisorId": "uuid-of-supervisor",
+  "status": "active"
+}
+```
+
+**List Roles within Department:**
+```http
+GET /api/departments/roles
+```
+
+**Department Intelligence:**
+*   **Staff Workload:** `GET /api/departments/:id/staff` (Lists staff + active shipment counts)
+*   **Department Stats:** `GET /api/departments/:id` (Live shipment & financial metrics)
+
+### 8. ⛓️ Parallel Workflow Orchestration
+Shipments can be attached to workflows consisting of multiple parallel or sequential steps. Each step can be assigned to different departments.
+
+**Attach Workflow to Shipment:**
+```http
+POST /api/workflows/:shipmentId/attach
+```
+```json
+{
+  "templateId": "uuid-standard-import",
+  "steps": [
+    {
+      "name": "Warehouse Inspection",
+      "departmentId": "uuid-warehouse",
+      "priority": "high"
+    }
+  ]
+}
+```
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Workflow attached.",
+  "data": {
+    "workflowId": "uuid",
+    "activeStep": "Warehouse Inspection",
+    "completionStatus": 0
+  }
+}
+```
+
+### 9. 💬 Internal Messaging & Global Search
+Staff can communicate within threads linked to specific shipments or entities, and perform global scoped searches.
+
+**Send Message:**
+```http
+POST /api/messages
+```
+```json
+{
+  "recipientId": "uuid",
+  "threadId": "shipment-uuid",
+  "content": "Document #45 has been verified.",
+  "messageType": "text"
+}
+```
+
+**Get Inbox:**
+```http
+GET /api/messages/inbox
+```
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "userId": "uuid",
+      "userName": "Jane Admin",
+      "lastMessage": "Invoice confirmed.",
+      "unreadCount": 2,
+      "timestamp": "2026-04-22T09:20:00Z"
+    }
+  ]
+}
+```
+
+**Search Workflow:**
+```http
+GET /api/search?q=EGL-EXP&type=shipments
+```
+
+### 10. 🔔 Notifications & Preferences
+Real-time alerts for shipment status changes, assignments, and financial updates.
+
+**Get Notifications:**
+```http
+GET /api/notifications?unread=true
+```
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "title": "Payment Verified 💰",
+      "content": "Payment for EGL-00045 has been approved by Finance.",
+      "isRead": false
+    }
+  ]
+}
+```
+
+**Global Scoped Search:**
+```http
+GET /api/search?q=tracking-number&type=shipments
+```
+
+### 11. 🛡️ Fine-Grained Access Control (RBAC/ABAC)
+EagleNet implements a multi-layered security model using both Role-Based and Attribute-Based Access Control.
+
+- **SuperAdmin:** Absolute control over all system resources.
+- **Admin:** Control over departmental resources and staff management.
+- **Staff:** Base operational rights (Shipment creation, Document upload).
+- **Departmental Roles:** Granular permissions (e.g., "Customs Officer" can only clear shipments in their department).
+
+**Authorization Middleware Usage:**
+```typescript
+router.patch("/:id/status", authorize("shipment", "update"), updateStatus);
+```
+
+### 12. 📡 Real-time Communication & WebSockets
 When a shipment is updated, the Socket engine immediately pushes an event.
 
 **Client Socket Subscription (Socket.io payload):**
@@ -308,7 +604,8 @@ src/
 │   ├── notifications/   # Email (Sendgrid/Resend) & Preferences
 │   ├── roles/           # RBAC policy definitions
 │   ├── search/          # Global scoping-aware unified search
-│   ├── shipments/       # Core freight handling & workflow orchestration
+│   ├── shipments/       # Core freight handling & lifecycle
+│   ├── workflow/        # Parallel task orchestration & step management
 │   └── users/           # IAM, Staff profiles
 ├── middleware/          # Security, Rate limiting, Token validators
 ├── jobs/                # Background chron jobs (Pingers)

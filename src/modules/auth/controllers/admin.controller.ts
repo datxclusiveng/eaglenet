@@ -8,7 +8,7 @@ import { PermissionScope } from "../../permissions/entities/Permission";
 import { parsePagination, paginate } from "../../../utils/helpers";
 
 import { appCache, CacheKeys } from "../../../utils/cache";
-import { serializeUser, serializeUsers } from "../../../utils/serializers";
+import { serializeUsers } from "../../../utils/serializers";
 
 // ─── Admin Dashboard ───────────────────────────────────────────────────────────
 

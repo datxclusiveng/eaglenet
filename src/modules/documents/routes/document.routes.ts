@@ -17,7 +17,7 @@ import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { documentUpload } from "../../../middleware/upload.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
 import { validate } from "../../../middleware/validate.middleware";
-import { uploadDocumentSchema } from "../../../utils/validators";
+import { uploadDocumentSchema, uuidParamSchema, shipmentIdParamSchema } from "../../../utils/validators";
 
 const router = Router();
 
@@ -38,6 +38,7 @@ router.post(
  */
 router.patch(
   "/:id/status",
+  validate(uuidParamSchema),
   ...adminOnly,
   authorize("document", "verify"),
   updateDocumentStatus
@@ -48,6 +49,7 @@ router.patch(
  */
 router.get(
   "/shipment/:shipmentId",
+  validate(shipmentIdParamSchema),
   ...auth,
   authorize("document", "read"),
   listShipmentDocuments
@@ -60,6 +62,7 @@ router.get(
  */
 router.post(
   "/:id/versions",
+  validate(uuidParamSchema),
   ...auth,
   authorize("document", "update"),
   documentUpload.single("file"),
@@ -72,6 +75,7 @@ router.post(
  */
 router.get(
   "/:id/versions",
+  validate(uuidParamSchema),
   ...auth,
   authorize("document", "read"),
   listDocumentVersions
@@ -83,6 +87,7 @@ router.get(
  */
 router.get(
   "/:id/activity",
+  validate(uuidParamSchema),
   ...auth,
   authorize("document", "read"),
   getDocumentActivityLog
@@ -107,6 +112,7 @@ router.get(
  */
 router.patch(
   "/:id/meta",
+  validate(uuidParamSchema),
   ...adminOnly,
   authorize("document", "update"),
   updateDocumentMeta
