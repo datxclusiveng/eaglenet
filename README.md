@@ -269,6 +269,22 @@ PATCH /api/shipments/:id/status
 }
 ```
 
+**Customs Clearance Ledger:**
+```http
+GET /api/shipments/:shipmentId/customs
+```
+**Update Customs Record:**
+```http
+PATCH /api/shipments/:shipmentId/customs
+```
+```json
+{
+  "dutyPaid": 25000,
+  "customsStatus": "cleared",
+  "declarationNumber": "DEC-99442"
+}
+```
+
 ### 4. 🗂️ Document Management & Archiving
 Staff upload waybills and manifests. Text is extracted securely server-side.
 

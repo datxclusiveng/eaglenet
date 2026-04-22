@@ -25,7 +25,7 @@ const router = Router();
  * Upload & Link
  */
 router.post(
-  "/upload",
+  "/",
   ...auth,
   authorize("document", "create"),
   documentUpload.single("file"),
