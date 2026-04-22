@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { getAuditLogs } from "../services/audit.service";
-import { paginate, parsePagination } from "../../../utils/helpers";
+import { paginate, parsePagination, sanitizeUser } from "../../../utils/helpers";
 import { User, UserRole } from "../../users/entities/User";
 
 /**
@@ -41,9 +41,14 @@ export async function listAuditLogs(req: Request, res: Response) {
       to,
     });
 
+    const sanitizedRows = rows.map((log: any) => ({
+      ...log,
+      performer: log.performer ? sanitizeUser(log.performer) : null,
+    }));
+
     return res.status(200).json({
       status: "success",
-      data: rows,
+      data: sanitizedRows,
       meta: paginate(total, page, limit),
     });
   } catch (err) {

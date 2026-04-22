@@ -7,6 +7,7 @@ import {
   deleteDepartment,
   getDepartmentStaff,
   listRoles,
+  assignStaff,
 } from "../controllers/department.controller";
 import { auth, adminOnly, superAdminOnly } from "../../../middleware/auth.middleware";
 
@@ -55,6 +56,13 @@ router.post("/", ...superAdminOnly, createDepartment);
  * Body: { name?, email?, supervisorId?, status?, metadata? }
  */
 router.patch("/:id", ...adminOnly, updateDepartment);
+
+/**
+ * POST /api/departments/:id/staff
+ * Assign an existing staff member to this department with a specific role.
+ * Body: { userId, roleId }
+ */
+router.post("/:id/staff", ...superAdminOnly, assignStaff);
 
 /**
  * DELETE /api/departments/:id

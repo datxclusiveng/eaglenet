@@ -474,28 +474,31 @@ Content-Type: multipart/form-data
 ### 6. ⚖️ Forensic Actions (Audit Subsystem)
 All administrative or sensitive state changes are recorded immutably. Though you don't POST to an audit endpoint, querying it looks like this:
 
-**Get Recent Audits Response:**
+**Get Recent Audits:**
+```http
+GET /api/audit
+```
+**Optional Filters:** `?entityType=Shipment&entityId=uuid&action=STATUS_CHANGE&performedBy=userId`
+
+**Audit Response:**
 ```json
 {
   "success": true,
   "data": [
     {
       "id": "uuid",
-      "action": "status_change",
       "entityType": "Shipment",
-      "entityId": "uuid-of-shipment",
-      "performedBy": "John Doe",
-      "timestamp": "2026-04-22T08:10:00Z",
-      "details": {
-        "previousStatus": "pending",
-        "newStatus": "customs",
-        "note": "Awaiting final clearance fee confirmation"
-      }
+      "action": "STATUS_CHANGE",
+      "actionDetails": { "before": "pending", "after": "customs" },
+      "performedBy": "userId",
+      "createdAt": "2026-04-22T10:15:00Z"
     }
   ],
-  "timestamp": "2026-04-22T08:25:00Z"
+  "meta": { "total": 125, "page": 1, "limit": 10 }
 }
 ```
+
+
 
 ### 7. 🏢 Departmental Governance & Org Structure
 Departments define the collaborative boundaries. A department has a supervisor, a dedicated email, and its own staff roster.
@@ -513,9 +516,24 @@ POST /api/departments
 }
 ```
 
-**List Roles within Department:**
+**List Available Roles:**
 ```http
 GET /api/departments/roles
+```
+
+**Onboard Staff Member (SuperAdmin Only):**
+Creates a staff account and assigns them to a department/role in one step.
+```http
+POST /api/users/staff
+```
+```json
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "j.doe@eaglenet.com",
+  "departmentId": "uuid-air-freight",
+  "roleId": "uuid-dispatcher-role"
+}
 ```
 
 **Department Intelligence:**
@@ -554,7 +572,65 @@ POST /api/workflows/:shipmentId/attach
 }
 ```
 
-### 9. 💬 Internal Messaging & Global Search
+
+### 9. 🛡️ Dynamic Access Control (RBAC/ABAC)
+EagleNet uses a sophisticated Attribute-Based Access Control (ABAC) system. SuperAdmins can define atomic permissions and group them into roles.
+
+#### 📋 System Permission Registry (Reference)
+Use these strings when creating permissions:
+
+| Resource | Supported Actions |
+| :--- | :--- |
+| **shipment** | `create`, `read`, `update`, `delete`, `approve` |
+| **customs** | `read`, `update` |
+| **invoice** | `create`, `read`, `update`, `reconcile` |
+| **payment** | `create`, `read`, `process` |
+| **document** | `create`, `read`, `update`, `verify` |
+| **workflow** | `create`, `read`, `update`, `attach` |
+| **audit** | `read` |
+| **department**| `create`, `read`, `update`, `delete` |
+
+**Discovery Endpoint:**
+```http
+GET /api/permissions
+```
+
+**Step 1: Define a Permission**
+```http
+POST /api/permissions
+```
+```json
+{
+  "resource": "shipment",
+  "action": "approve",
+  "scope": "department",
+  "conditions": { "status": "customs" }
+}
+```
+
+**Step 2: Create a Role & Bind Permissions**
+```http
+POST /api/roles
+```
+```json
+{
+  "name": "Customs Senior Officer",
+  "permissionIds": ["uuid-1", "uuid-2"]
+}
+```
+
+**Step 3: Assign Existing Staff to Department/Role**
+```http
+POST /api/departments/:id/staff
+```
+```json
+{
+  "userId": "uuid-of-existing-staff",
+  "roleId": "uuid-of-role"
+}
+```
+
+### 10. 💬 Internal Messaging & Global Search
 Staff can communicate within threads linked to specific shipments or entities, and perform global scoped searches.
 
 **Send Message:**
@@ -573,6 +649,33 @@ POST /api/messages
 **Get Inbox:**
 ```http
 GET /api/messages/inbox
+```
+
+### 11. 👥 Customer Management (CRM)
+Dedicated system for managing customer profiles and tracking their business history.
+
+**Onboard Customer:**
+```http
+POST /api/customers
+```
+```json
+{
+  "fullName": "Jane Doe",
+  "email": "jane.doe@example.com",
+  "phoneNumber": "+234 801 234 5678"
+}
+```
+
+**List & Search Customers:**
+Query parameters: `?search=jane&page=1&limit=10`
+```http
+GET /api/customers
+```
+
+**View Customer Shipment History:**
+Automatically retrieves all shipments linked to the customer's email.
+```http
+GET /api/customers/:id/shipments
 ```
 **Success Response:**
 ```json

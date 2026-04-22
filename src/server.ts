@@ -23,6 +23,8 @@ import paymentRoutes from "./modules/financial/routes/payment.routes";
 import invoiceRoutes from "./modules/financial/routes/invoice.routes";
 import workflowRoutes from "./modules/workflow/routes/workflow.routes";
 import auditRoutes from "./modules/audit/routes/audit.routes";
+import permissionRoutes from "./modules/permissions/routes/permission.routes";
+import roleRoutes from "./modules/roles/routes/role.routes";
 import searchRoutes from "./modules/search/routes/search.routes";
 import adminRoutes from "./modules/auth/routes/admin.routes";
 import serviceRoutes from "./modules/shipments/routes/service.routes";
@@ -30,6 +32,7 @@ import departmentRoutes from "./modules/departments/routes/department.routes";
 import documentRoutes from "./modules/documents/routes/document.routes";
 import messageRoutes from "./modules/messages/routes/message.routes";
 import notificationRoutes from "./modules/notifications/routes/notification.routes";
+import customerRoutes from "./modules/customers/routes/customer.routes";
 
 // Load environment variables
 dotenv.config();
@@ -154,6 +157,8 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/workflows", workflowRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/permissions", permissionRoutes);
+app.use("/api/roles", roleRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/services", serviceRoutes);
@@ -161,6 +166,7 @@ app.use("/api/departments", departmentRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/customers", customerRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
@@ -192,9 +198,15 @@ const PORT = process.env.PORT || 3000;
 const httpServer = createServer(app);
 initSocket(httpServer);
 
+import { seedPermissions } from "./scripts/seed-permissions";
+
 AppDataSource.initialize()
-  .then(() => {
+  .then(async () => {
     logger.info("Data Source has been initialized!");
+    
+    // Auto-seed permissions on every restart
+    await seedPermissions();
+
     httpServer.listen(PORT, () => {
       logger.info(`EagleNet API running on port ${PORT}`, { port: PORT });
     });

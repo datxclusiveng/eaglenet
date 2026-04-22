@@ -232,6 +232,54 @@ export async function updateDepartment(req: Request, res: Response) {
   }
 }
 
+// ─── Assign existing staff to department ───────────────────────────────────────
+export async function assignStaff(req: Request, res: Response) {
+  try {
+    const actor = (req as any).user as User;
+    const departmentId = req.params.id as string;
+    const userId = req.body.userId as string;
+    const roleId = req.body.roleId as string;
+
+    const dept = await repo().findOneBy({ id: departmentId });
+    if (!dept) return res.status(404).json({ status: "error", message: "Department not found." });
+
+    const user = await AppDataSource.getRepository(User).findOneBy({ id: userId });
+    if (!user) return res.status(404).json({ status: "error", message: "User not found." });
+
+    const role = await AppDataSource.getRepository(Role).findOneBy({ id: roleId });
+    if (!role) return res.status(404).json({ status: "error", message: "Role not found." });
+
+    // Check if already assigned
+    const udrRepo = AppDataSource.getRepository(UserDepartmentRole);
+    const existing = await udrRepo.findOneBy({ userId, departmentId, roleId });
+    if (existing) {
+      return res.status(400).json({ status: "error", message: "User already has this role in this department." });
+    }
+
+    const udr = udrRepo.create({ userId, departmentId, roleId });
+    await udrRepo.save(udr);
+
+    // Update count
+    await repo().increment({ id: departmentId }, "totalStaff", 1);
+
+    createAuditLog({
+      entityType: "Department",
+      entityId: departmentId,
+      action: AuditAction.UPDATE,
+      actionDetails: { type: "staff_assignment", userId, roleId },
+      performedBy: actor.id,
+      departmentId,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return res.status(200).json({ status: "success", message: "Staff assigned successfully." });
+  } catch (err) {
+    console.error("[DepartmentController.assignStaff]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
 // ─── Delete (soft) department ──────────────────────────────────────────────────
 export async function deleteDepartment(req: Request, res: Response) {
   try {
