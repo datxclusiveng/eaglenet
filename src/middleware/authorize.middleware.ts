@@ -21,9 +21,9 @@ export function authorize(resource: string, action: string) {
         return next();
       }
 
-      // 1.5. Customers have a strict whitelist of allowable actions.
-      // Controllers/Services ensure they only interact with their own data natively.
-      if (user.role === UserRole.CUSTOMER) {
+      // 1.5. Staff members (base role) have a whitelist of allowable actions.
+      // Departmental role checks follow this if needed.
+      if (user.role === UserRole.STAFF) {
         const allowed = [
           { resource: "shipment", action: "create" },
           { resource: "shipment", action: "read" },
@@ -41,7 +41,7 @@ export function authorize(resource: string, action: string) {
         
         return res.status(403).json({ 
           status: "error", 
-          message: `Access Denied: Customers cannot perform ${action} on ${resource}.` 
+          message: `Access Denied: Base staff accounts cannot perform ${action} on ${resource}. Use a departmental account.` 
         });
       }
 

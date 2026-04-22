@@ -25,19 +25,19 @@ router.post(
 );
 
 /**
- * Customer: Initialize payment for a shipment
+ * Staff: Initialize payment for a shipment
  * POST /api/payments/initialize
  */
 router.post("/initialize", ...auth, authorize("payment", "create"), initializePayment);
 
 /**
- * Customer/Admin: Verify a payment by reference
+ * Staff/Admin: Verify a payment by reference
  * GET /api/payments/verify/:reference
  */
 router.get("/verify/:reference", ...auth, authorize("payment", "read"), verifyPayment);
 
 /**
- * Customer: My payment history
+ * Staff: My payment history
  * GET /api/payments/mine
  */
 router.get("/mine", ...auth, authorize("payment", "read"), myPayments);

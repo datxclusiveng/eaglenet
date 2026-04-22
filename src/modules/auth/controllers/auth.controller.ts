@@ -63,7 +63,7 @@ export async function register(req: Request, res: Response) {
 
     // First user → SUPERADMIN
     const count = await repo.count();
-    const role = count === 0 ? UserRole.SUPERADMIN : UserRole.CUSTOMER;
+    const role = count === 0 ? UserRole.SUPERADMIN : UserRole.STAFF;
 
     const hashed = await bcrypt.hash(password, 12);
 

@@ -146,7 +146,7 @@ export async function sendBookingConfirmationEmail(
     shipmentId: data.shipmentId,
     templateData: {
       title: "Booking Confirmed",
-      customerName: data.fullName,
+      userName: data.fullName,
       mainContent: `Your ${data.type.replace("_", " ")} shipment from ${data.origin} to ${data.destination} has been booked.`,
       shipmentId: data.trackingId,
       status: "PENDING",
@@ -172,7 +172,7 @@ export async function sendStatusUpdateEmail(
     shipmentId: data.shipmentId,
     templateData: {
       title: "Status Update",
-      customerName: data.fullName,
+      userName: data.fullName,
       mainContent: `The status of your shipment ${data.trackingId} has been updated.`,
       shipmentId: data.trackingId,
       status: data.status.replace("_", " ").toUpperCase(),
@@ -186,7 +186,7 @@ export async function sendWelcomeEmail(to: string, fullName: string) {
         subject: `Welcome to ${BRAND}`,
         templateUsed: "welcome",
         templateData: {
-            customerName: fullName,
+            userName: fullName,
             mainContent: "Your account has been created successfully. Welcome aboard!",
         }
     });

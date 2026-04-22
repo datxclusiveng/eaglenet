@@ -37,7 +37,7 @@ router.get(
 );
 
 /**
- * Customer / Admin: Single invoice detail
+ * Staff / Admin: Single invoice detail
  * GET /api/invoices/:id
  */
 router.get(

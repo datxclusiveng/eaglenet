@@ -48,7 +48,7 @@ export async function performGlobalSearch(options: SearchOptions): Promise<Searc
         qb.andWhere("s.departmentId = :departmentId", { departmentId });
       } else if (scope === PermissionScope.OWN) {
         qb.andWhere("s.assignedOfficerId = :uid", { uid: actor.id });
-      } else if (actor.role === UserRole.CUSTOMER) {
+      } else if (actor.role === UserRole.STAFF) {
         qb.andWhere("s.clientEmail = :email", { email: actor.email });
       }
     }
@@ -77,8 +77,8 @@ export async function performGlobalSearch(options: SearchOptions): Promise<Searc
         qb.andWhere("d.departmentId = :departmentId", { departmentId });
       } else if (scope === PermissionScope.OWN) {
         qb.andWhere("d.uploaderId = :uid", { uid: actor.id });
-      } else if (actor.role === UserRole.CUSTOMER) {
-        // Tie documents to customer's own shipments via join if possible, 
+      } else if (actor.role === UserRole.STAFF) {
+        // Tie documents to staff member's own shipments via join if possible, 
         // or just by uploaderId if they uploaded it
         qb.leftJoin("d.shipment", "ds")
           .andWhere("(ds.clientEmail = :email OR d.uploaderId = :uid)", { email: actor.email, uid: actor.id });
@@ -104,7 +104,7 @@ export async function performGlobalSearch(options: SearchOptions): Promise<Searc
     qb.where("inv.invoiceNumber ILIKE :q", { q: searchTerm });
 
     if (!isGlobalAdmin) {
-      if (actor.role === UserRole.CUSTOMER) {
+      if (actor.role === UserRole.STAFF) {
         qb.leftJoin("inv.shipment", "is").andWhere("is.clientEmail = :email", { email: actor.email });
       } else if (scope === PermissionScope.DEPARTMENT && departmentId) {
         qb.leftJoin("inv.shipment", "is").andWhere("is.departmentId = :departmentId", { departmentId });

@@ -291,7 +291,7 @@ export async function getStaffPerformance(req: Request, res: Response) {
         "COUNT(CASE WHEN s.status = 'delivered' THEN 1 END) as deliveredCount",
         "COUNT(CASE WHEN s.status = 'in_transit' THEN 1 END) as activeCount"
       ])
-      .where("u.role != :cust", { cust: UserRole.CUSTOMER });
+      .where("u.role IN (:...roles)", { roles: [UserRole.STAFF, UserRole.ADMIN, UserRole.SUPERADMIN] });
 
     if (scope === PermissionScope.DEPARTMENT && departmentId) {
       qb.innerJoin("u.departmentRoles", "udr").andWhere("udr.departmentId = :deptId", { deptId: departmentId });

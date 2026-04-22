@@ -128,7 +128,7 @@ export class Shipment {
   departureDate?: string;
 
   // ─── Dates ────────────────────────────────────────────────────────────────
-  /** ETA (customer-facing) */
+  /** ETA (for tracking) */
   @Column({ type: "date", nullable: true })
   eta?: string;
 

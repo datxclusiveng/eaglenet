@@ -33,7 +33,7 @@ export const createShipmentSchema = z.object({
     packageDetails: z.string().optional(),
     serviceId: z.string().uuid("Invalid service ID").optional(),
     departmentId: z.string().uuid("Invalid department ID").optional(),
-    creationSource: z.enum(["CUSTOMER", "STAFF"]).optional(),
+    creationSource: z.enum(["INTERNAL", "STAFF"]).optional(),
     isExternal: z.boolean().optional(),
   }),
 });

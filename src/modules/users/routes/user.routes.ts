@@ -5,7 +5,7 @@ import {
   createAdmin,
   createStaff,
   upgradeToAdmin,
-  downgradeToCustomer,
+  downgradeToStaff,
   deactivateUser,
   reactivateUser,
   resetUserPassword,
@@ -61,9 +61,9 @@ router.patch("/:userId/upgrade", ...superAdminOnly, upgradeToAdmin);
 
 /**
  * PATCH /api/users/:userId/downgrade
- * SuperAdmin: downgrade an admin back to customer
+ * SuperAdmin: downgrade an admin back to staff member
  */
-router.patch("/:userId/downgrade", ...superAdminOnly, downgradeToCustomer);
+router.patch("/:userId/downgrade", ...superAdminOnly, downgradeToStaff);
 
 /**
  * PATCH /api/users/:userId/deactivate

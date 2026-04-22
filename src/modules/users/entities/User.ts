@@ -15,7 +15,7 @@ import { NotificationPreference } from "./NotificationPreference";
 import { Shipment } from "../../shipments/entities/Shipment";
 
 export enum UserRole {
-  CUSTOMER = "CUSTOMER",
+  STAFF = "STAFF",
   ADMIN = "ADMIN",
   SUPERADMIN = "SUPERADMIN",
 }
@@ -45,7 +45,7 @@ export class User {
   @Column({
     type: "enum",
     enum: UserRole,
-    default: UserRole.CUSTOMER,
+    default: UserRole.STAFF,
   })
   role!: UserRole;
 

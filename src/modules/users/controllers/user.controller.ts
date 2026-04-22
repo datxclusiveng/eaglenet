@@ -115,7 +115,7 @@ export async function createStaff(req: Request, res: Response) {
       email: email.toLowerCase().trim(),
       password: hashed,
       phoneNumber: phoneNumber?.trim(),
-      role: UserRole.CUSTOMER, // base system role; departmental role via UDR
+      role: UserRole.STAFF, // base system role; departmental role via UDR
     });
 
     await repo.save(user);
@@ -208,9 +208,9 @@ export async function upgradeToAdmin(req: Request, res: Response) {
   }
 }
 
-// ─── Admin: Downgrade admin back to customer ──────────────────────────────────
+// ─── Admin: Downgrade admin back to staff ───────────────────────────────────
 
-export async function downgradeToCustomer(req: Request, res: Response) {
+export async function downgradeToStaff(req: Request, res: Response) {
   try {
     const userId = req.params.userId as string;
     const repo = userRepo();
@@ -228,14 +228,14 @@ export async function downgradeToCustomer(req: Request, res: Response) {
     }
 
     const previousRole = target.role;
-    target.role = UserRole.CUSTOMER;
+    target.role = UserRole.STAFF;
     await repo.save(target);
 
     createAuditLog({
       entityType: "User",
       entityId: target.id,
       action: AuditAction.UPDATE,
-      actionDetails: { field: "role", before: previousRole, after: UserRole.CUSTOMER },
+      actionDetails: { field: "role", before: previousRole, after: UserRole.STAFF },
       performedBy: (req as any).user?.id,
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
@@ -243,11 +243,11 @@ export async function downgradeToCustomer(req: Request, res: Response) {
 
     return res.status(200).json({
       status: "success",
-      message: "Admin downgraded to customer.",
+      message: "Admin downgraded to staff member.",
       data: sanitize(target),
     });
   } catch (err) {
-    console.error("[UserController.downgradeToCustomer]", err);
+    console.error("[UserController.downgradeToStaff]", err);
     return res
       .status(500)
       .json({ status: "error", message: "Internal server error." });
