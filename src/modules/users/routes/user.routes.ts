@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   listUsers,
   getUser,
+  searchStaff,
   createAdmin,
   createStaff,
   upgradeToAdmin,
@@ -33,6 +34,12 @@ router.patch("/me/notifications/preferences", ...auth, updateNotificationPrefere
  * Query: ?page&limit&search&role
  */
 router.get("/", ...adminOnly, listUsers);
+
+/**
+ * GET /api/users/staff/search
+ * Admin: search staff + departments + roles
+ */
+router.get("/staff/search", ...adminOnly, searchStaff);
 
 /**
  * GET /api/users/:userId

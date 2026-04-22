@@ -388,6 +388,61 @@ export async function listUsers(req: Request, res: Response) {
   }
 }
 
+/**
+ * Admin/SuperAdmin: Search staff members and their departmental roles
+ * GET /api/users/staff/search?search=...
+ */
+export async function searchStaff(req: Request, res: Response) {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const search = (req.query.search as string) || "";
+
+    const repo = userRepo();
+    const qb = repo.createQueryBuilder("u")
+      .leftJoinAndSelect("u.departmentRoles", "udr")
+      .leftJoinAndSelect("udr.department", "dept")
+      .leftJoinAndSelect("udr.role", "role");
+
+    // Filter to only show staff/admin (exclude generic customers if any exist in User table)
+    qb.where("u.role IN (:...roles)", { roles: [UserRole.STAFF, UserRole.ADMIN, UserRole.SUPERADMIN] });
+
+    if (search) {
+      qb.andWhere(
+        "(u.firstName ILIKE :s OR u.lastName ILIKE :s OR u.email ILIKE :s)",
+        { s: `%${search}%` },
+      );
+    }
+
+    qb.orderBy("u.lastName", "ASC")
+      .addOrderBy("u.firstName", "ASC")
+      .skip(skip)
+      .take(limit);
+
+    const [users, total] = await qb.getManyAndCount();
+
+    const results = users.map(user => ({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      fullName: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      systemRole: user.role,
+      isActive: user.isActive,
+      departments: user.departmentRoles.map(udr => ({
+        id: udr.departmentId,
+        name: udr.department?.name,
+        role: udr.role?.name,
+        assignedAt: udr.createdAt
+      }))
+    }));
+
+    return (res as any).success(results, undefined, paginate(total, page, limit));
+  } catch (err) {
+    console.error("[UserController.searchStaff]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
 // ─── Admin: Get staff profile ─────────────────────────────────────────────────
 
 export async function getUser(req: Request, res: Response) {

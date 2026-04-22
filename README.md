@@ -738,7 +738,42 @@ EagleNet implements a multi-layered security model using both Role-Based and Att
 router.patch("/:id/status", authorize("shipment", "update"), updateStatus);
 ```
 
-### 12. 📡 Real-time Communication & WebSockets
+### 12. 🛠️ Staff & User Administration
+Administrators can manage the team, track performance, and audit actions.
+
+**Search Staff & Roles:**
+Query: `?search=doe&page=1&limit=10`
+```http
+GET /api/users/staff/search
+```
+**Success Response:**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "uuid",
+      "fullName": "Jane Doe",
+      "email": "jane@eaglenet.com",
+      "systemRole": "STAFF",
+      "departments": [
+        {
+          "name": "Customs",
+          "role": "Clearing Agent",
+          "assignedAt": "2026-04-22"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Get Staff Detailed Profile:**
+```http
+GET /api/users/:userId
+```
+
+### 13. 📡 Real-time Communication & WebSockets
 When a shipment is updated, the Socket engine immediately pushes an event.
 
 **Client Socket Subscription (Socket.io payload):**
