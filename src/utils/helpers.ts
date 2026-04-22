@@ -50,6 +50,7 @@ export function sanitizeUser(user: any): any {
   delete sanitized.password;
   delete sanitized.refreshToken;
   delete sanitized.refreshTokenExpiresAt;
+  delete sanitized.outstandingBalance;
   
   return sanitized;
 }

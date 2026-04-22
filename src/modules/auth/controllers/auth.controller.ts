@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { AppDataSource } from "../../../../database/data-source";
 import { User, UserRole } from "../../users/entities/User";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
+import { serializeUser } from "../../../utils/serializers";
 
 const userRepo = () => AppDataSource.getRepository(User);
 
@@ -16,10 +17,6 @@ function signToken(userId: string): string {
   return jwt.sign({ id: userId }, secret, { expiresIn });
 }
 
-function sanitize(user: User) {
-  const { password, refreshToken, refreshTokenExpiresAt, ...rest } = user as any;
-  return rest;
-}
 
 async function assignTokens(user: User) {
   const token = signToken(user.id);
@@ -89,14 +86,13 @@ export async function register(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(201).json({
-      status: "success",
-      message: "Registration successful.",
-      data: {
+    return (res as any).status(201).success(
+      {
         ...tokens,
-        user: sanitize(user),
+        user: serializeUser(user),
       },
-    });
+      "Registration successful."
+    );
   } catch (err: any) {
     console.error("[AuthController.register]", err);
     return res
@@ -168,14 +164,13 @@ export async function login(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({
-      status: "success",
-      message: "Login successful.",
-      data: {
+    return (res as any).success(
+      {
         ...tokens,
-        user: sanitize(user),
+        user: serializeUser(user),
       },
-    });
+      "Login successful."
+    );
   } catch (err: any) {
     console.error("[AuthController.login]", err);
     return res
@@ -189,7 +184,7 @@ export async function login(req: Request, res: Response) {
 export async function me(req: Request, res: Response) {
   try {
     const user = (req as any).user as User;
-    return res.status(200).json({ status: "success", data: sanitize(user) });
+    return (res as any).success(serializeUser(user));
   } catch (err) {
     return res
       .status(500)
@@ -232,7 +227,7 @@ export async function refresh(req: Request, res: Response) {
 
     const tokens = await assignTokens(user);
 
-    return res.status(200).json({ status: "success", data: tokens });
+    return (res as any).success(tokens);
   } catch (err) {
     console.error("[AuthController.refresh]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -259,7 +254,7 @@ export async function logout(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({ status: "success", message: "Logged out successfully." });
+    return (res as any).success(null, "Logged out successfully.");
   } catch (err) {
     console.error("[AuthController.logout]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -301,7 +296,7 @@ export async function changePassword(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({ status: "success", message: "Password changed successfully. Please login again." });
+    return (res as any).success(null, "Password changed successfully. Please login again.");
   } catch (err) {
     console.error("[AuthController.changePassword]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });

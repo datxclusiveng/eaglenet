@@ -10,6 +10,7 @@ import { Payment } from "../../financial/entities/Payment";
 import { AuditLog } from "../../audit/entities/AuditLog";
 import { parsePagination, paginate } from "../../../utils/helpers";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
+import { serializeUser } from "../../../utils/serializers";
 import crypto from "crypto";
 
 const userRepo = () => AppDataSource.getRepository(User);
@@ -57,11 +58,7 @@ export async function createAdmin(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(201).json({
-      status: "success",
-      message: "Admin created successfully.",
-      data: sanitize(admin),
-    });
+    return (res as any).status(201).success(serializeUser(admin), "Admin created successfully.");
   } catch (err) {
     console.error("[UserController.createAdmin]", err);
     return res
@@ -146,16 +143,15 @@ export async function createStaff(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(201).json({
-      status: "success",
-      message: "Staff member created successfully. A temporary password has been set.",
-      data: {
-        ...sanitize(user),
-        tempPassword, // Return once — frontend should email this securely
+    return (res as any).status(201).success(
+      {
+        ...serializeUser(user),
+        tempPassword,
         department: dept.name,
         role: role.name,
       },
-    });
+      "Staff member created successfully. A temporary password has been set."
+    );
   } catch (err) {
     console.error("[UserController.createStaff]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -195,11 +191,7 @@ export async function upgradeToAdmin(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({
-      status: "success",
-      message: "User upgraded to admin.",
-      data: sanitize(target),
-    });
+    return (res as any).success(serializeUser(target), "User upgraded to admin.");
   } catch (err) {
     console.error("[UserController.upgradeToAdmin]", err);
     return res
@@ -241,11 +233,7 @@ export async function downgradeToStaff(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({
-      status: "success",
-      message: "Admin downgraded to staff member.",
-      data: sanitize(target),
-    });
+    return (res as any).success(serializeUser(target), "Admin downgraded to staff member.");
   } catch (err) {
     console.error("[UserController.downgradeToStaff]", err);
     return res
@@ -289,7 +277,7 @@ export async function deactivateUser(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({ status: "success", message: "User deactivated." });
+    return (res as any).success(null, "User deactivated.");
   } catch (err) {
     console.error("[UserController.deactivateUser]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -323,7 +311,7 @@ export async function reactivateUser(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({ status: "success", message: "User reactivated." });
+    return (res as any).success(null, "User reactivated.");
   } catch (err) {
     console.error("[UserController.reactivateUser]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -360,11 +348,7 @@ export async function resetUserPassword(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({
-      status: "success",
-      message: "Password reset successfully.",
-      data: { tempPassword },
-    });
+    return (res as any).success({ tempPassword }, "Password reset successfully.");
   } catch (err) {
     console.error("[UserController.resetUserPassword]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -395,11 +379,7 @@ export async function listUsers(req: Request, res: Response) {
     qb.orderBy("u.createdAt", "DESC").skip(skip).take(limit);
     const [users, total] = await qb.getManyAndCount();
 
-    return res.status(200).json({
-      status: "success",
-      data: users.map(sanitize),
-      meta: paginate(total, page, limit),
-    });
+    return (res as any).success(users.map(serializeUser), undefined, paginate(total, page, limit));
   } catch (err) {
     console.error("[UserController.listUsers]", err);
     return res
@@ -445,21 +425,18 @@ export async function getUser(req: Request, res: Response) {
         .getMany(),
     ]);
 
-    return res.status(200).json({
-      status: "success",
-      data: {
-        ...sanitize(user),
-        stats: {
-          assignedShipments,
-          totalProcessed: Number(totalSpentResult?.total || 0),
-        },
-        departments: user.departmentRoles.map((udr) => ({
-          department: udr.department,
-          role: udr.role,
-          since: udr.createdAt,
-        })),
-        recentActivity,
+    return (res as any).success({
+      ...serializeUser(user),
+      stats: {
+        assignedShipments,
+        totalProcessed: Number(totalSpentResult?.total || 0),
       },
+      departments: user.departmentRoles.map((udr) => ({
+        department: udr.department,
+        role: udr.role,
+        since: udr.createdAt,
+      })),
+      recentActivity,
     });
   } catch (err) {
     console.error("[UserController.getUser]", err);
@@ -486,13 +463,10 @@ export async function myDashboard(req: Request, res: Response) {
         .getRawOne(),
     ]);
 
-    return res.status(200).json({
-      status: "success",
-      data: {
-        user: sanitize(user),
-        assignedShipments,
-        totalProcessed: Number(totalPaid?.total || 0),
-      },
+    return (res as any).success({
+      user: serializeUser(user),
+      assignedShipments,
+      totalProcessed: Number(totalPaid?.total || 0),
     });
   } catch (err) {
     console.error("[UserController.myDashboard]", err);
@@ -520,7 +494,7 @@ export async function getNotificationPreferences(req: Request, res: Response) {
       await prefRepo.save(pref);
     }
 
-    return res.status(200).json({ status: "success", data: pref });
+    return (res as any).success(pref);
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Failed to fetch preferences." });
   }
@@ -558,13 +532,9 @@ export async function updateNotificationPreferences(req: Request, res: Response)
 
     await prefRepo.save(pref);
 
-    return res.status(200).json({ status: "success", data: pref });
+    return (res as any).success(pref);
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Failed to update preferences." });
   }
 }
 
-function sanitize(user: User) {
-  const { password, refreshToken, refreshTokenExpiresAt, ...rest } = user as any;
-  return rest;
-}

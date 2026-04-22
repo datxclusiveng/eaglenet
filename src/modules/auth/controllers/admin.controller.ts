@@ -8,6 +8,7 @@ import { PermissionScope } from "../../permissions/entities/Permission";
 import { parsePagination, paginate } from "../../../utils/helpers";
 
 import { appCache, CacheKeys } from "../../../utils/cache";
+import { serializeUser, serializeUsers } from "../../../utils/serializers";
 
 // ─── Admin Dashboard ───────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ export async function getDashboardStats(req: Request, res: Response) {
     const cachedData = appCache.get(cacheKey);
 
     if (cachedData) {
-      return res.status(200).json({ status: "success", data: cachedData });
+      return (res as any).success(cachedData);
     }
 
     const userRepo = AppDataSource.getRepository(User);
@@ -132,10 +133,7 @@ export async function getDashboardStats(req: Request, res: Response) {
 
     appCache.set(cacheKey, dashboardData);
 
-    return res.status(200).json({
-      status: "success",
-      data: dashboardData,
-    });
+    return (res as any).success(dashboardData);
   } catch (err) {
     console.error("[AdminController.getDashboardStats]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -206,17 +204,14 @@ export async function getMonthlyReport(req: Request, res: Response) {
         ? 0
         : Math.round((deliveredCount / totalBookings) * 100);
 
-    return res.status(200).json({
-      status: "success",
-      data: {
-        year,
-        month,
-        totalBookings,
-        newStaff,
-        totalRevenue,
-        deliveredCount,
-        reportReady,
-      },
+    return (res as any).success({
+      year,
+      month,
+      totalBookings,
+      newStaff,
+      totalRevenue,
+      deliveredCount,
+      reportReady,
     });
   } catch (err) {
     console.error("[AdminController.getMonthlyReport]", err);
@@ -250,13 +245,7 @@ export async function listAllUsers(req: Request, res: Response) {
     qb.orderBy("u.createdAt", "DESC").skip(skip).take(limit);
     const [users, total] = await qb.getManyAndCount();
 
-    const sanitized = users.map(({ password, refreshToken, refreshTokenExpiresAt, ...rest }) => rest);
-
-    return res.status(200).json({
-      status: "success",
-      data: sanitized,
-      meta: paginate(total, page, limit),
-    });
+    return (res as any).success(serializeUsers(users), undefined, paginate(total, page, limit));
   } catch (err) {
     console.error("[AdminController.listAllUsers]", err);
     return res
@@ -276,7 +265,7 @@ export async function getStaffPerformance(req: Request, res: Response) {
 
     const cacheKey = `staff_performance_${departmentId || "global"}_${actor.id}`;
     const cached = appCache.get(cacheKey);
-    if (cached) return res.status(200).json({ status: "success", data: cached });
+    if (cached) return (res as any).success(cached);
 
     const userRepo = AppDataSource.getRepository(User);
     
@@ -314,7 +303,7 @@ export async function getStaffPerformance(req: Request, res: Response) {
 
     appCache.set(cacheKey, data);
 
-    return res.status(200).json({ status: "success", data });
+    return (res as any).success(data);
   } catch (err) {
     console.error("[AdminController.getStaffPerformance]", err);
     return res.status(500).json({ status: "error", message: "Failed to fetch performance stats." });

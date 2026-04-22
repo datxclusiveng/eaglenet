@@ -18,6 +18,7 @@ export function serializeUser(user: User | any): any {
     password,
     refreshToken,
     refreshTokenExpiresAt,
+    outstandingBalance,
     // Keep everything else
     ...safe
   } = user;
