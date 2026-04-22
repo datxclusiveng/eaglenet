@@ -96,3 +96,29 @@ export const updateInvoiceStatusSchema = z.object({
     }),
   }),
 });
+
+export const processManualPaymentSchema = z.object({
+  body: z.object({
+    status: z.enum(["SUCCESS", "FAILED"]),
+    notes: z.string().min(1, "Reason or memo is required for manual processing."),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid payment ID format."),
+  }),
+});
+
+export const adminConfirmPaymentSchema = z.object({
+  body: z.object({
+    invoiceId: z.string().uuid("Invalid invoice ID."),
+    amount: z.coerce.number().positive("Amount must be positive."),
+    paymentMethod: z.enum(["transfer", "cash", "card"]),
+    notes: z.string().min(1, "Internal notes are required for audit trail."),
+    receiptUrl: z.string().optional(),
+    metadata: z.preprocess((val) => {
+      if (typeof val === "string") {
+        try { return JSON.parse(val); } catch { return val; }
+      }
+      return val;
+    }, z.record(z.string(), z.any()).optional()),
+  }),
+});

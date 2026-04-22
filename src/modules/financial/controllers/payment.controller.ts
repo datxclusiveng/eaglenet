@@ -9,6 +9,7 @@ import { NotificationType } from "../../notifications/entities/Notification";
 import { generateEglId, paginate, parsePagination, sanitizeUser } from "../../../utils/helpers";
 import { logActivity } from "../../shipments/services/activity.service";
 import { reconcileInvoice } from "../services/invoice.service";
+import { uploadFile } from "../../../utils/storage.service";
 
 const repo = () => AppDataSource.getRepository(Payment);
 
@@ -217,6 +218,83 @@ export async function processManualPayment(req: Request, res: Response) {
     });
   } catch (err) {
     console.error("[PaymentController.processManual]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
+/**
+ * Admin Instant Confirmation
+ * Allows staff to create and approve a payment in one step (e.g. for Cash/Bank Transfer seen on teller)
+ * POST /api/payments/admin-confirm
+ */
+export async function adminConfirmPayment(req: Request, res: Response) {
+  try {
+    const admin = (req as any).user as User;
+    const { invoiceId, amount, paymentMethod, notes, receiptUrl, metadata } = req.body;
+
+    let finalReceiptUrl = receiptUrl;
+    if (req.file) {
+      const { url } = await uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        "receipts"
+      );
+      finalReceiptUrl = url;
+    }
+
+    const invoiceRepo = AppDataSource.getRepository((await import("../entities/Invoice")).Invoice);
+    const invoice = await invoiceRepo.findOne({
+      where: { id: invoiceId },
+      relations: ["shipment", "shipment.department"],
+    });
+
+    if (!invoice) return res.status(404).json({ status: "error", message: "Invoice not found." });
+
+    const reference = generateEglId("REF");
+    const paymentId = generateEglId("PAY");
+
+    const payment = repo().create({
+      paymentId,
+      reference,
+      amount: Number(amount),
+      status: PaymentStatus.SUCCESS,
+      userId: invoice.shipment!.createdById!, // Or whoever the shipment belongs to
+      shipmentId: invoice.shipmentId,
+      invoiceId: invoice.id,
+      paymentMethod,
+      notes,
+      receiptUrl: finalReceiptUrl,
+      metadata,
+      processedById: admin.id,
+      processedAt: new Date(),
+    });
+
+    await repo().save(payment);
+
+    // Update User Balance
+    const userRepo = AppDataSource.getRepository(User);
+    const user = await userRepo.findOneBy({ id: payment.userId });
+    if (user) {
+      user.outstandingBalance = Math.max(0, Number(user.outstandingBalance) - payment.amount);
+      await userRepo.save(user);
+    }
+
+    // Log Activity
+    await logActivity(invoice.shipmentId!, admin.id, "payment_verified_manual", {
+      metadata: { amount: payment.amount, method: paymentMethod, processedBy: admin.email, notes }
+    });
+
+    // Reconcile Invoice
+    await reconcileInvoice(invoice.id);
+
+    return res.status(201).json({
+      status: "success",
+      message: "Payment created and confirmed manually.",
+      data: payment,
+    });
+  } catch (err) {
+    console.error("[PaymentController.adminConfirm]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }

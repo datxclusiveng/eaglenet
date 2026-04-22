@@ -104,6 +104,14 @@ export class Payment {
   @JoinColumn({ name: "invoice_id" })
   invoice?: Invoice;
 
+  /** Optional URL to a physical receipt / proof of payment image */
+  @Column({ name: "receipt_url", type: "text", nullable: true })
+  receiptUrl?: string;
+
+  /** For storing additional transaction data (teller numbers, bank names, etc.) */
+  @Column({ type: "jsonb", nullable: true, default: {} })
+  metadata?: any;
+
   @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
 

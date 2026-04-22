@@ -429,7 +429,7 @@ POST /api/payments/initialize
 }
 ```
 
-**Manual Verification (Payment Dept):**
+**Manual Verification (Processing a PENDING request):**
 ```http
 PATCH /api/payments/:id/process
 ```
@@ -439,6 +439,20 @@ PATCH /api/payments/:id/process
   "notes": "Transfer confirmed in GTB Statement." 
 }
 ```
+
+**Instant Manual Confirmation (Direct Upload / Cash):**
+Use this to approve a payment immediately after creating an invoice. Supports direct file uploads for screenshots.
+```http
+POST /api/payments/admin-confirm
+Content-Type: multipart/form-data
+```
+**Fields (Multipart):**
+* `invoiceId`: uuid
+* `amount`: 25000
+* `paymentMethod`: transfer | cash | card
+* `notes`: Verified on Bank Teller #994
+* `receipt`: (File Attachment - Screenshot/PDF)
+* `metadata`: { "bank": "GTB" } (Optional JSON string)
 **Expected Response:**
 ```json
 {

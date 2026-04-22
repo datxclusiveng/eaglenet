@@ -7,11 +7,13 @@ import {
   listPayments,
   getPayment,
   processManualPayment,
+  adminConfirmPayment,
 } from "../controllers/payment.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
 import { validate } from "../../../middleware/validate.middleware";
-import { uuidParamSchema } from "../../../utils/validators";
+import { uuidParamSchema, processManualPaymentSchema, adminConfirmPaymentSchema } from "../../../utils/validators";
+import { uploadMiddleware } from "../../../middleware/upload.middleware";
 import express from "express";
 
 const router = Router();
@@ -59,9 +61,21 @@ router.get("/", ...adminOnly, authorize("payment", "read"), listPayments);
 router.get("/:id", validate(uuidParamSchema), ...adminOnly, authorize("payment", "read"), getPayment);
 
 /**
- * Admin/Payment Dept: Manually accept or reject a payment
- * PATCH /api/payments/:id/process
+ * Admin/Payment Dept: Manually accept or reject a pending payment
  */
-router.patch("/:id/process", validate(uuidParamSchema), ...adminOnly, authorize("payment", "update"), processManualPayment);
+router.patch("/:id/process", validate(processManualPaymentSchema), ...adminOnly, authorize("payment", "update"), processManualPayment);
+
+/**
+ * Admin/Payment Dept: Instant manual confirmation (no initiation needed)
+ * POST /api/payments/admin-confirm
+ */
+router.post(
+  "/admin-confirm",
+  ...adminOnly,
+  authorize("payment", "create"),
+  uploadMiddleware.single("receipt"),
+  validate(adminConfirmPaymentSchema),
+  adminConfirmPayment
+);
 
 export default router;
