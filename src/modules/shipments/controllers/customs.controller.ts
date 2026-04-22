@@ -43,20 +43,51 @@ export async function updateCustomsStatus(req: Request, res: Response) {
 export async function getCustomsDetail(req: Request, res: Response) {
   try {
     const shipmentId = req.params.shipmentId as string;
-    const clearance = await repo().findOne({
+
+    let clearance = await repo().findOne({
       where: { shipmentId },
       relations: ["clearingAgent"]
     });
 
-    if (!clearance) return res.status(404).json({ status: "error", message: "No customs record found." });
+    // ─── Auto-initialize if shipment is in CUSTOMS status but no record exists ──
+    if (!clearance) {
+      // Check if the shipment actually exists and is in customs phase
+      const shipmentRepo = AppDataSource.getRepository(
+        (await import("../entities/Shipment")).Shipment
+      );
+      const shipment = await shipmentRepo.findOneBy({ id: shipmentId });
+
+      if (!shipment) {
+        return res.status(404).json({ status: "error", message: "Shipment not found." });
+      }
+
+      if (shipment.status !== (await import("../entities/Shipment")).ShipmentStatus.CUSTOMS) {
+        return res.status(404).json({
+          status: "error",
+          message: "No customs record found. Shipment has not entered the customs phase yet.",
+        });
+      }
+
+      // Shipment is in CUSTOMS but record was never created — initialize it now
+      clearance = repo().create({
+        shipmentId,
+        status: CustomsStatus.PENDING_DOCUMENTS,
+        remarks: "Auto-initialized on first access",
+      });
+      await repo().save(clearance);
+
+      // Re-fetch with relations
+      clearance = (await repo().findOne({ where: { shipmentId }, relations: ["clearingAgent"] }))!;
+    }
 
     const safeClearance = {
       ...clearance,
-      clearingAgent: sanitizeUser(clearance.clearingAgent),
+      clearingAgent: clearance.clearingAgent ? sanitizeUser(clearance.clearingAgent) : null,
     };
 
     return res.status(200).json({ status: "success", data: safeClearance });
   } catch (err) {
+    console.error("[CustomsController.get]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }

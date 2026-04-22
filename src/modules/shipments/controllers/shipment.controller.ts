@@ -11,6 +11,7 @@ import { paginate, parsePagination, sanitizeUser } from "../../../utils/helpers"
 import { serializeShipment, serializePaginatedResponse } from "../../../utils/serializers";
 import { logActivity } from "../services/activity.service";
 import { LogVisibility, ShipmentLog } from "../entities/ShipmentLog";
+import { CustomsClearance, CustomsStatus } from "../entities/CustomsClearance";
 import {
   sendBookingConfirmationEmail,
   sendStatusUpdateEmail,
@@ -304,6 +305,20 @@ export async function updateShipmentStatus(req: Request, res: Response) {
     }
 
     await repo().save(shipment);
+
+    // ─── Phase 3 Integration: Auto-initialize Customs Ledger ─────────────────
+    if (status === ShipmentStatus.CUSTOMS) {
+      const customsRepo = AppDataSource.getRepository(CustomsClearance);
+      const existing = await customsRepo.findOneBy({ shipmentId: shipment.id });
+      if (!existing) {
+        const clearance = customsRepo.create({
+          shipmentId: shipment.id,
+          status: CustomsStatus.PENDING_DOCUMENTS,
+          remarks: "Auto-initialized upon status change to CUSTOMS",
+        });
+        await customsRepo.save(clearance);
+      }
+    }
 
     // Log status history
     let emailSent = false;
