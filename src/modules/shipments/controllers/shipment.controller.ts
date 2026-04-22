@@ -280,8 +280,12 @@ export async function getShipment(req: Request, res: Response) {
 export async function updateShipmentStatus(req: Request, res: Response) {
   try {
     const id = req.params.id as string;
-    const { status, note, location, triggerEmail, visibility } = req.body;
+    const { status, note, location, triggerEmail, visibility } = req.body || {};
     const user = (req as any).user as User;
+
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({ status: "error", message: "Request body is missing or empty." });
+    }
 
     if (!status || !Object.values(ShipmentStatus).includes(status)) {
       return res.status(400).json({ status: "error", message: "Invalid shipment status." });
@@ -369,6 +373,10 @@ export async function updateShipment(req: Request, res: Response) {
   try {
     const id = req.params.id as string;
     const user = (req as any).user as User;
+
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({ status: "error", message: "Request body is missing or empty." });
+    }
 
     const shipment = await repo().findOneBy({ id });
     if (!shipment) {

@@ -216,7 +216,17 @@ GET /api/shipments/:id/history
 **Bulk Import (Admin):**
 `POST /api/shipments/bulk-import` (Multipart with `file` field)
 
-**Export Data:** `GET /api/shipments/export`
+**Export Data (Bulk):**
+```http
+GET /api/shipments/export?format=csv&status=pending
+```
+**Query Parameters:**
+- `format`: `xlsx` (default) or `csv`
+- `status`: Filter by shipment status
+- `type`: `import` or `export`
+- `search`: Filter by tracking number or client name
+
+**Response:** Returns a downloadable file (`shipments.xlsx` or `shipments.csv`).
 
 **Explanations:**
 - **Shipment Lifecycle:** Created as `PENDING`, moves to `IN_TRANSIT` (Logistics), then `DELIVERED` (PoD).

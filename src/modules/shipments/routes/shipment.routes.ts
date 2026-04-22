@@ -21,7 +21,7 @@ import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
 import { bulkImportUpload, uploadMiddleware } from "../../../middleware/upload.middleware";
 import { validate } from "../../../middleware/validate.middleware";
-import { createShipmentSchema, uuidParamSchema, shipmentIdParamSchema } from "../../../utils/validators";
+import { createShipmentSchema, uuidParamSchema, shipmentIdParamSchema, updateShipmentStatusSchema } from "../../../utils/validators";
 
 const router = Router();
 
@@ -68,7 +68,7 @@ router.post(
 router.patch("/:id", validate(uuidParamSchema), authorize("shipment", "update"), updateShipment);
 
 // Update status only
-router.patch("/:id/status", validate(uuidParamSchema), authorize("shipment", "update"), updateShipmentStatus);
+router.patch("/:id/status", validate(updateShipmentStatusSchema), authorize("shipment", "update"), updateShipmentStatus);
 
 // Upload delivery proof
 router.post(

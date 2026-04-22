@@ -1,5 +1,18 @@
 import { z } from "zod";
 import { InvoiceStatus } from "../modules/financial/entities/Invoice";
+import { ShipmentStatus } from "../modules/shipments/entities/Shipment";
+
+export const updateShipmentStatusSchema = z.object({
+  body: z.object({
+    status: z.nativeEnum(ShipmentStatus),
+    note: z.string().optional(),
+    location: z.string().optional(),
+    visibility: z.enum(["public", "internal"]).optional().default("public"),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid ID format."),
+  }),
+});
 
 export const uuidParamSchema = z.object({
   params: z.object({
