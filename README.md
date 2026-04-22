@@ -269,21 +269,44 @@ PATCH /api/shipments/:id/status
 }
 ```
 
-**Customs Clearance Ledger:**
+---
+> ⚠️ **Two separate endpoints for customs — do NOT confuse them:**
+
+**Step 1 — Move shipment into customs phase (uses shipment `:id`):**
+```http
+PATCH /api/shipments/:id/status
+```
+```json
+{
+  "status": "customs",
+  "note": "Arrived at Lagos Seaport",
+  "location": "Lagos Seaport",
+  "visibility": "public"
+}
+```
+> Valid `status` values: `pending` | `in_transit` | `customs` | `delivered` | `on_hold` | `cancelled`
+> This auto-creates the customs ledger entry.
+
+---
+
+**Step 2 — View the customs clearance record (uses `:shipmentId`):**
 ```http
 GET /api/shipments/:shipmentId/customs
 ```
-**Update Customs Record:**
+
+**Step 3 — Update customs clearance details (uses `:shipmentId`):**
 ```http
 PATCH /api/shipments/:shipmentId/customs
 ```
 ```json
 {
-  "dutyPaid": 25000,
-  "customsStatus": "cleared",
-  "declarationNumber": "DEC-99442"
+  "status": "duty_paid",
+  "remarks": "All duties settled. Declaration filed."
 }
 ```
+> Valid customs `status` values: `pending_documents` | `under_examination` | `duty_paid` | `released` | `exit_gate`
+
+---
 
 ### 4. 🗂️ Document Management & Archiving
 Staff upload waybills and manifests. Text is extracted securely server-side.

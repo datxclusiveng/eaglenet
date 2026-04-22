@@ -34,7 +34,7 @@ export async function updateCustomsStatus(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({ status: "success", data: clearance });
+    return (res as any).success(clearance, "Customs clearance details updated.");
   } catch (err) {
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
@@ -85,7 +85,7 @@ export async function getCustomsDetail(req: Request, res: Response) {
       clearingAgent: clearance.clearingAgent ? sanitizeUser(clearance.clearingAgent) : null,
     };
 
-    return res.status(200).json({ status: "success", data: safeClearance });
+    return (res as any).success(safeClearance);
   } catch (err) {
     console.error("[CustomsController.get]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
