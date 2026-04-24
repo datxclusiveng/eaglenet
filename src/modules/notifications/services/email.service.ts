@@ -65,11 +65,38 @@ async function logEmail(payload: EmailPayload, status: EmailStatus, error?: stri
   }
 }
 
+// ─── Partial Registration ─────────────────────────────────────────────────────
+// Registers all .hbs files in the partials/ directory once at startup.
+// This must run before any template is compiled, otherwise {{> layout}} will throw.
+
+let partialsRegistered = false;
+
+function registerPartials() {
+  if (partialsRegistered) return;
+  const partialsDir = path.join(process.cwd(), "src", "templates", "emails", "partials");
+  if (!fs.existsSync(partialsDir)) {
+    console.warn("[EmailService] Partials directory not found:", partialsDir);
+    partialsRegistered = true;
+    return;
+  }
+  const files = fs.readdirSync(partialsDir).filter((f) => f.endsWith(".hbs"));
+  for (const file of files) {
+    const name = path.basename(file, ".hbs");
+    const content = fs.readFileSync(path.join(partialsDir, file), "utf-8");
+    Handlebars.registerPartial(name, content);
+  }
+  console.info(`[EmailService] Registered ${files.length} Handlebars partial(s): ${files.join(", ")}`);
+  partialsRegistered = true;
+}
+
 /**
  * Loads and compiles a Handlebars template.
  */
 function compileTemplate(templateName: string, data: any): string {
   try {
+    // Ensure all partials (e.g. layout) are registered before compiling
+    registerPartials();
+
     const templatePath = path.join(process.cwd(), "src", "templates", "emails", `${templateName}.hbs`);
     if (!fs.existsSync(templatePath)) {
       console.warn(`[EmailService] Template not found: ${templateName}.`);
