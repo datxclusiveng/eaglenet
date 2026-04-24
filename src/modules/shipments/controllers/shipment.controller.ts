@@ -78,7 +78,7 @@ export async function createShipment(req: Request, res: Response) {
       clientName,
       clientEmail,
       clientPhone,
-    } = req.body;
+    } = req.body || {};
 
     if (!shipmentName || !shipmentName.trim()) {
       return res.status(400).json({ status: "error", message: "Shipment name is required." });
@@ -408,9 +408,10 @@ export async function updateShipment(req: Request, res: Response) {
       "internalNotes", "notes", "assignedOfficerId",
     ];
 
+    const body = req.body || {};
     for (const field of updatable) {
-      if (req.body[field] !== undefined) {
-        (shipment as any)[field] = req.body[field];
+      if (body[field] !== undefined) {
+        (shipment as any)[field] = body[field];
       }
     }
 

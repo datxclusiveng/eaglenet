@@ -112,7 +112,7 @@ export async function getDepartment(req: Request, res: Response) {
 export async function createDepartment(req: Request, res: Response) {
   try {
     const actor = (req as any).user as User;
-    const { name, email, supervisorId, metadata } = req.body;
+    const { name, email, supervisorId, metadata } = req.body || {};
 
     if (!name) {
       return res.status(400).json({ status: "error", message: "Department name is required." });
@@ -172,7 +172,7 @@ export async function updateDepartment(req: Request, res: Response) {
   try {
     const actor = (req as any).user as User;
     const id = req.params.id as string;
-    const { name, email, supervisorId, status, metadata } = req.body;
+    const { name, email, supervisorId, status, metadata } = req.body || {};
 
     const dept = await repo().findOneBy({ id });
     if (!dept) {

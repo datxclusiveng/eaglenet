@@ -19,7 +19,7 @@ const userRepo = () => AppDataSource.getRepository(User);
 
 export async function createAdmin(req: Request, res: Response) {
   try {
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, email, password } = req.body || {};
 
     if (!firstName || !lastName || !email || !password) {
       return res
@@ -75,7 +75,7 @@ export async function createStaff(req: Request, res: Response) {
     const {
       firstName, lastName, email, phoneNumber,
       departmentId, roleId,
-    } = req.body;
+    } = req.body || {};
 
     if (!firstName || !lastName || !email || !departmentId || !roleId) {
       return res.status(400).json({
@@ -247,7 +247,7 @@ export async function downgradeToStaff(req: Request, res: Response) {
 export async function deactivateUser(req: Request, res: Response) {
   try {
     const userId = req.params.userId as string;
-    const { reason } = req.body;
+    const { reason } = req.body || {};
     const actor = (req as any).user as User;
 
     const repo = userRepo();
@@ -572,7 +572,7 @@ export async function updateNotificationPreferences(req: Request, res: Response)
       emailShipmentStatus, emailAssignments, emailFinancial,
       inAppShipmentStatus, inAppAssignments, inAppFinancial,
       quietHoursEnabled, quietHoursStart, quietHoursEnd
-    } = req.body;
+    } = req.body || {};
 
     if (emailShipmentStatus !== undefined) pref.emailShipmentStatus = !!emailShipmentStatus;
     if (emailAssignments !== undefined) pref.emailAssignments = !!emailAssignments;
