@@ -7,6 +7,7 @@ import { Shipment, ShipmentStatus } from "../../shipments/entities/Shipment";
 import { Role } from "../../roles/entities/Role";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import { parsePagination, paginate } from "../../../utils/helpers";
+import { serializeEntity } from "../../../utils/serializers";
 
 const repo = () => AppDataSource.getRepository(Department);
 
@@ -55,7 +56,7 @@ export async function listDepartments(req: Request, res: Response) {
 
     return res.status(200).json({
       status: "success",
-      data: withStats,
+      data: withStats.map(serializeEntity),
       meta: paginate(total, page, limit),
     });
   } catch (err) {
@@ -91,18 +92,15 @@ export async function getDepartment(req: Request, res: Response) {
 
     return res.status(200).json({
       status: "success",
-      data: {
+      data: serializeEntity({
         ...dept,
-        supervisor: dept.supervisor
-          ? { id: dept.supervisor.id, name: `${dept.supervisor.firstName} ${dept.supervisor.lastName}`, email: dept.supervisor.email }
-          : null,
         stats: {
           totalShipments,
           pendingShipments,
           activeShipments,
           totalStaff: staffCount,
         },
-      },
+      }),
     });
   } catch (err) {
     console.error("[DepartmentController.get]", err);
@@ -162,7 +160,7 @@ export async function createDepartment(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(201).json({ status: "success", data: dept });
+    return res.status(201).json({ status: "success", data: serializeEntity(dept) });
   } catch (err) {
     console.error("[DepartmentController.create]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -225,7 +223,7 @@ export async function updateDepartment(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json({ status: "success", data: dept });
+    return res.status(200).json({ status: "success", data: serializeEntity(dept) });
   } catch (err) {
     console.error("[DepartmentController.update]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });

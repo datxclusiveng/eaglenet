@@ -521,6 +521,17 @@ POST /api/departments
 GET /api/departments/roles
 ```
 
+**Update Department (Admin Only):**
+```http
+PATCH /api/departments/:id
+```
+
+**Delete Department (SuperAdmin Only):**
+```http
+DELETE /api/departments/:id
+```
+*(Note: Blocked if the department has active in-transit shipments)*
+
 **Onboard Staff Member (SuperAdmin Only):**
 Creates a staff account and assigns them to a department/role in one step.
 ```http
@@ -533,6 +544,23 @@ POST /api/users/staff
   "email": "j.doe@eaglenet.com",
   "departmentId": "uuid-air-freight",
   "roleId": "uuid-dispatcher-role"
+}
+```
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Staff member created successfully. A temporary password has been set.",
+  "data": {
+    "id": "uuid-of-new-staff",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "j.doe@eaglenet.com",
+    "role": "STAFF",
+    "tempPassword": "a1b2c3d4e5f6g7h8",
+    "department": "Air Freight",
+    "roleName": "Dispatcher"
+  }
 }
 ```
 
@@ -772,6 +800,33 @@ GET /api/users/staff/search
 ```http
 GET /api/users/:userId
 ```
+
+**Upgrade to Admin (SuperAdmin Only):**
+```http
+PATCH /api/users/:userId/upgrade
+```
+
+**Downgrade to Staff (SuperAdmin Only):**
+```http
+PATCH /api/users/:userId/downgrade
+```
+
+**Deactivate User (Admin Only):**
+```http
+PATCH /api/users/:userId/deactivate
+```
+**Body:** `{ "reason": "Optional reason for deactivation" }`
+
+**Reactivate User (Admin Only):**
+```http
+PATCH /api/users/:userId/reactivate
+```
+
+**Force Reset Password (Admin Only):**
+```http
+POST /api/users/:userId/reset-password
+```
+**Response:** Returns a `tempPassword` for the user.
 
 ### 13. 📡 Real-time Communication & WebSockets
 When a shipment is updated, the Socket engine immediately pushes an event.

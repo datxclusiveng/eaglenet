@@ -8,7 +8,7 @@ import { Shipment } from "../modules/shipments/entities/Shipment";
 
 /**
  * Sanitize user object for API responses
- * Removes: password, refreshToken, refreshTokenExpiresAt
+ * Removes: password, refreshToken, refreshTokenExpiresAt, outstandingBalance
  */
 export function serializeUser(user: User | any): any {
   if (!user) return null;
@@ -35,26 +35,55 @@ export function serializeUsers(users: (User | any)[]): any[] {
 }
 
 /**
- * Serialize shipment including assignedOfficer
+ * Serialize any entity by sanitizing its common User relations.
+ * This is a catch-all for entities like Shipment, Department, Payment, etc.
  */
-export function serializeShipment(shipment: Shipment | any): any {
-  if (!shipment) return null;
-
-  const serialized = {
-    ...shipment,
-  };
-
-  // Sanitize assignedOfficer if it exists
-  if (serialized.assignedOfficer) {
-    serialized.assignedOfficer = serializeUser(serialized.assignedOfficer);
-  }
-
-  // Sanitize collaborators if they exist
+export function serializeEntity(entity: any): any {
+  if (!entity) return null;
+  
+  const serialized = { ...entity };
+  
+  // Common User relation fields across the system
+  const userFields = [
+    'createdBy', 
+    'supervisor', 
+    'assignedOfficer', 
+    'updatedBy', 
+    'user', 
+    'changedBy',
+    'performedBy',
+    'processedBy',
+    'uploadedBy'
+  ];
+  
+  userFields.forEach(field => {
+    if (serialized[field]) {
+      // If it's an array of users (rare for these fields but possible)
+      if (Array.isArray(serialized[field])) {
+        serialized[field] = serialized[field].map(serializeUser);
+      } else {
+        serialized[field] = serializeUser(serialized[field]);
+      }
+    }
+  });
+  
+  // Handle special array relations
   if (serialized.collaborators && Array.isArray(serialized.collaborators)) {
     serialized.collaborators = serialized.collaborators.map(serializeUser);
   }
 
+  if (serialized.staff && Array.isArray(serialized.staff)) {
+    serialized.staff = serialized.staff.map(serializeUser);
+  }
+  
   return serialized;
+}
+
+/**
+ * Serialize shipment including relations
+ */
+export function serializeShipment(shipment: Shipment | any): any {
+  return serializeEntity(shipment);
 }
 
 /**
@@ -75,7 +104,7 @@ export function serializePaginatedResponse(data: any[], meta?: any): {
 } {
   return {
     status: "success",
-    data: serializeShipments(data),
+    data: data.map(serializeEntity),
     ...(meta && { meta }),
   };
 }
