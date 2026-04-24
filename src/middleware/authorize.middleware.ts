@@ -21,8 +21,10 @@ export function authorize(resource: string, action: string) {
         return next();
       }
 
-      // 1.5. Staff members (base role) have a whitelist of allowable actions.
-      // Departmental role checks follow this if needed.
+      // 1.5. Fast-path whitelist for base STAFF actions.
+      // If the action is in the whitelist, allow immediately.
+      // If NOT in the whitelist, fall through to the full departmental ABAC check below —
+      // do NOT hard-reject here, as the user may have a departmental role granting this permission.
       if (user.role === UserRole.STAFF) {
         const allowed = [
           { resource: "shipment", action: "create" },
@@ -36,13 +38,11 @@ export function authorize(resource: string, action: string) {
           { resource: "search", action: "read" }
         ];
         const isAllowed = allowed.some(r => r.resource === resource && r.action === action);
-        
+
+        // Fast-path: immediately grant for known base staff actions
         if (isAllowed) return next();
-        
-        return res.status(403).json({ 
-          status: "error", 
-          message: `Access Denied: Base staff accounts cannot perform ${action} on ${resource}. Use a departmental account.` 
-        });
+
+        // Not in whitelist — fall through to departmental permission check below
       }
 
       // 2. Load User's Departmental Roles and Permissions
