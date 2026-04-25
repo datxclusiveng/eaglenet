@@ -104,6 +104,7 @@ const publicFileLimiter = rateLimit({
   message: "Too many file requests.",
 });
 app.use("/public", publicFileLimiter);
+app.use("/api/public", publicFileLimiter);
 
 app.use(hpp() as any);
 
@@ -138,6 +139,7 @@ app.use(express.json({ limit: "10kb" }));
 
 // ─── STATIC ───────────────────────────────────────────────────────────────────
 app.use("/public", express.static(path.join(process.cwd(), "public")));
+app.use("/api/public", express.static(path.join(process.cwd(), "public")));
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get("/", (_req: Request, res: Response) => {
