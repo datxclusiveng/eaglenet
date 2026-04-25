@@ -11,15 +11,15 @@ const userRepo = () => AppDataSource.getRepository(User);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function signToken(userId: string): string {
+function signToken(user: User): string {
   const secret = process.env.JWT_SECRET!;
   const expiresIn = (process.env.JWT_EXPIRES_IN || "30d") as any;
-  return jwt.sign({ id: userId }, secret, { expiresIn });
+  return jwt.sign({ id: user.id, tokenVersion: user.tokenVersion || 0 }, secret, { expiresIn });
 }
 
 
 async function assignTokens(user: User) {
-  const token = signToken(user.id);
+  const token = signToken(user);
   const rawRefreshToken = crypto.randomBytes(32).toString("hex");
   const hashedRefreshToken = await bcrypt.hash(rawRefreshToken, 10);
 
@@ -261,6 +261,35 @@ export async function logout(req: Request, res: Response) {
   }
 }
 
+// ─── Global Logout (All Devices) ──────────────────────────────────────────
+
+export async function logoutAll(req: Request, res: Response) {
+  try {
+    const user = (req as any).user as User;
+    const repo = userRepo();
+
+    user.refreshToken = undefined;
+    user.refreshTokenExpiresAt = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // Invalidate all JWTs
+    await repo.save(user);
+
+    createAuditLog({
+      entityType: "User",
+      entityId: user.id,
+      action: AuditAction.LOGOUT,
+      actionDetails: { type: "global" },
+      performedBy: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return (res as any).success(null, "Logged out of all devices successfully.");
+  } catch (err) {
+    console.error("[AuthController.logoutAll]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
 // ─── Change Password ────────────────────────────────────────────────────────
 
 export async function changePassword(req: Request, res: Response) {
@@ -282,9 +311,10 @@ export async function changePassword(req: Request, res: Response) {
 
     const repo = userRepo();
     user.password = await bcrypt.hash(newPassword, 12);
-    // Invalidate all refresh tokens on password change (force re-login)
+    // Invalidate all refresh tokens and JWTs on password change
     user.refreshToken = undefined;
     user.refreshTokenExpiresAt = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await repo.save(user);
 
     createAuditLog({

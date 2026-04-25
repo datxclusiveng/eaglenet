@@ -22,9 +22,7 @@ export function authorize(resource: string, action: string) {
       }
 
       // 1.5. Fast-path whitelist for base STAFF actions.
-      // If the action is in the whitelist, allow immediately.
-      // If NOT in the whitelist, fall through to the full departmental ABAC check below —
-      // do NOT hard-reject here, as the user may have a departmental role granting this permission.
+      let isFastPathAllowed = false;
       if (user.role === UserRole.STAFF) {
         const allowed = [
           { resource: "shipment", action: "create" },
@@ -37,12 +35,7 @@ export function authorize(resource: string, action: string) {
           { resource: "payment", action: "read" },
           { resource: "search", action: "read" }
         ];
-        const isAllowed = allowed.some(r => r.resource === resource && r.action === action);
-
-        // Fast-path: immediately grant for known base staff actions
-        if (isAllowed) return next();
-
-        // Not in whitelist — fall through to departmental permission check below
+        isFastPathAllowed = allowed.some(r => r.resource === resource && r.action === action);
       }
 
       // 2. Load User's Departmental Roles and Permissions
@@ -52,9 +45,8 @@ export function authorize(resource: string, action: string) {
         relations: ["role", "role.permissions", "department"],
       });
 
-      if (!userPermissions || userPermissions.length === 0) {
-        // If no departmental roles, check if the resource is "own" and they have base rights.
-        // For simplicity, we strictly enforce policy-only access for administrative modules.
+      if ((!userPermissions || userPermissions.length === 0) && !isFastPathAllowed) {
+        // If no departmental roles and not in fast path, reject.
         return res.status(403).json({ 
           status: "error", 
           message: "Access Denied: No departmental clearance." 
@@ -97,6 +89,14 @@ export function authorize(resource: string, action: string) {
 
             if (targetScope === PermissionScope.ALL) break;
           }
+        }
+      }
+
+      if (!hasAccess && isFastPathAllowed) {
+        hasAccess = true;
+        targetScope = PermissionScope.OWN;
+        if (userPermissions && userPermissions.length > 0) {
+          matchedDepartmentId = userPermissions[0].departmentId;
         }
       }
 

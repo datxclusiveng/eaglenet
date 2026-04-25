@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { register, login, me, refresh, logout, changePassword } from "../controllers/auth.controller";
+import { register, login, me, refresh, logout, logoutAll, changePassword } from "../controllers/auth.controller";
 import { auth } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { registerSchema, loginSchema } from "../../../utils/validators";
@@ -34,6 +34,12 @@ router.post("/refresh", refresh);
  * POST /api/auth/logout
  */
 router.post("/logout", ...auth, logout);
+
+/**
+ * POST /api/auth/logout-all
+ * Logs out from all devices by invalidating all JWTs
+ */
+router.post("/logout-all", ...auth, logoutAll);
 
 /**
  * PATCH /api/auth/change-password

@@ -8,7 +8,7 @@ import {
   remove,
 } from "../controllers/message.controller";
 import { auth } from "../../../middleware/auth.middleware";
-import { uploadMiddleware } from "../../../middleware/upload.middleware";
+import { uploadMiddleware, validateFileContent } from "../../../middleware/upload.middleware";
 
 const router = Router();
 
@@ -34,7 +34,7 @@ router.get("/thread/:userId", threadMessages);
  * Body (form-data): { recipientId, content?, messageType? }
  * File: optional attachment (field name: "attachment")
  */
-router.post("/", uploadMiddleware.single("attachment"), send);
+router.post("/", uploadMiddleware.single("attachment"), validateFileContent, send);
 
 /**
  * PATCH /api/messages/:id/read

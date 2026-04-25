@@ -13,7 +13,7 @@ import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { uuidParamSchema, processManualPaymentSchema, adminConfirmPaymentSchema } from "../../../utils/validators";
-import { uploadMiddleware } from "../../../middleware/upload.middleware";
+import { uploadMiddleware, validateFileContent } from "../../../middleware/upload.middleware";
 import express from "express";
 
 const router = Router();
@@ -74,6 +74,7 @@ router.post(
   ...adminOnly,
   authorize("payment", "create"),
   uploadMiddleware.single("receipt"),
+  validateFileContent,
   validate(adminConfirmPaymentSchema),
   adminConfirmPayment
 );

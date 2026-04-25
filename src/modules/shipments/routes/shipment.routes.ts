@@ -19,7 +19,7 @@ import { updateCustomsStatus, getCustomsDetail } from "../controllers/customs.co
 import { bulkImportShipmentsController } from "../controllers/bulk-import.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
-import { bulkImportUpload, uploadMiddleware } from "../../../middleware/upload.middleware";
+import { bulkImportUpload, uploadMiddleware, validateFileContent } from "../../../middleware/upload.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { createShipmentSchema, uuidParamSchema, shipmentIdParamSchema, updateShipmentStatusSchema } from "../../../utils/validators";
 
@@ -76,6 +76,7 @@ router.post(
   validate(uuidParamSchema),
   authorize("shipment", "update"),
   uploadMiddleware.fields([{ name: "signature" }, { name: "photo" }]),
+  validateFileContent,
   uploadDeliveryProof
 );
 
@@ -91,6 +92,7 @@ router.post(
   ...adminOnly,
   authorize("shipment", "create"),
   bulkImportUpload.single("file"),
+  validateFileContent,
   bulkImportShipmentsController
 );
 

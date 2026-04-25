@@ -78,6 +78,9 @@ export class User {
   @DeleteDateColumn({ name: "deleted_at" })
   deletedAt?: Date;
 
+  @Column({ name: "token_version", default: 0 })
+  tokenVersion!: number;
+
   @Column({ name: "refresh_token", nullable: true })
   @Exclude()
   refreshToken?: string;

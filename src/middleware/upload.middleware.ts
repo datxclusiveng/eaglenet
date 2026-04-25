@@ -1,7 +1,7 @@
-import { Request as _Request } from "express";
+import { Request as _Request, Response, NextFunction } from "express";
 import multer from "multer";
 import path from "path";
-
+import { fromBuffer } from "file-type";
 
 /**
  * Allowed MIME types for archival document uploads.
@@ -93,3 +93,50 @@ export const bulkImportUpload = multer({
     cb(new UploadError("Bulk imports only accept .xls, .xlsx, or .csv files."));
   },
 });
+
+/**
+ * Middleware to validate file magic bytes after multer has buffered it into memory.
+ * This prevents MIME spoofing.
+ */
+export async function validateFileContent(req: _Request, res: Response, next: NextFunction) {
+  try {
+    const files: Express.Multer.File[] = [];
+    if (req.file) files.push(req.file);
+    if (req.files) {
+      if (Array.isArray(req.files)) {
+        files.push(...req.files);
+      } else {
+        Object.values(req.files).forEach((f) => files.push(...f));
+      }
+    }
+
+    if (files.length === 0) return next();
+
+    for (const file of files) {
+      // Plain text formats don't have magic bytes
+      if (file.mimetype === "text/csv" || file.mimetype === "text/plain") {
+        continue;
+      }
+
+      const typeInfo = await fromBuffer(file.buffer);
+      if (!typeInfo) {
+        return res.status(400).json({ status: "error", message: "Could not verify file content type. Invalid or unsupported format." });
+      }
+
+      const detectedMime = typeInfo.mime;
+      const allowed = [
+        ...ARCHIVE_ALLOWED_MIMES,
+        "image/webp", "image/gif", "application/zip",
+      ];
+
+      if (!allowed.includes(detectedMime)) {
+        return res.status(400).json({ status: "error", message: `Invalid file content detected: ${detectedMime}. Spoofed extension?` });
+      }
+    }
+
+    next();
+  } catch (err) {
+    console.error("[validateFileContent]", err);
+    return res.status(500).json({ status: "error", message: "File validation failed." });
+  }
+}

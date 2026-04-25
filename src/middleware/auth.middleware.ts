@@ -23,9 +23,10 @@ export function authenticate(
   const token = authHeader.split(" ")[1];
   try {
     const secret = process.env.JWT_SECRET!;
-    const decoded = jwt.verify(token, secret) as { id: string };
-    // Attach minimal user object; controllers can fetch full record from DB when needed
+    const decoded = jwt.verify(token, secret) as { id: string, tokenVersion?: number };
+    // Attach minimal user info; controllers can fetch full record from DB when needed
     (req as any).userId = decoded.id;
+    (req as any).tokenVersion = decoded.tokenVersion || 0;
     next();
   } catch {
     res
@@ -58,6 +59,15 @@ export function loadUser(
           .json({ status: "error", message: "User not found or inactive." });
         return;
       }
+      
+      const tokenVersion = (req as any).tokenVersion || 0;
+      if (user.tokenVersion !== tokenVersion) {
+        res
+          .status(401)
+          .json({ status: "error", message: "Token has been revoked. Please login again." });
+        return;
+      }
+
       req.user = user;
       next();
     })

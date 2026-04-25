@@ -14,7 +14,7 @@ import {
   getDocumentActivityLog,
 } from "../controllers/document-version.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
-import { documentUpload } from "../../../middleware/upload.middleware";
+import { documentUpload, validateFileContent } from "../../../middleware/upload.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { uploadDocumentSchema, uuidParamSchema, shipmentIdParamSchema } from "../../../utils/validators";
@@ -29,6 +29,7 @@ router.post(
   ...auth,
   authorize("document", "create"),
   documentUpload.single("file"),
+  validateFileContent,
   validate(uploadDocumentSchema),
   uploadDocument
 );
@@ -66,6 +67,7 @@ router.post(
   ...auth,
   authorize("document", "update"),
   documentUpload.single("file"),
+  validateFileContent,
   uploadDocumentVersion
 );
 
