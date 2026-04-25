@@ -19,6 +19,14 @@ const ARCHIVE_ALLOWED_MIMES = [
 
 const ARCHIVE_ALLOWED_EXTS = /\.(pdf|jpg|jpeg|png|xls|xlsx|doc|docx)$/i;
 
+class UploadError extends Error {
+  public statusCode = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = "UploadError";
+  }
+}
+
 /**
  * documentUpload — for standard document uploads (PDF, images, Word, Excel).
  * Uses memory storage so files can be streamed directly to S3-compatible storage.
@@ -36,7 +44,7 @@ export const documentUpload = multer({
     if (validExt && validMime) {
       return cb(null, true);
     }
-    cb(new Error("Unsupported file type. Allowed: PDF, JPG, PNG, XLS, XLSX, DOC, DOCX"));
+    cb(new UploadError("Unsupported file type. Allowed: PDF, JPG, PNG, XLS, XLSX, DOC, DOCX"));
   },
 });
 
@@ -60,7 +68,7 @@ export const uploadMiddleware = multer({
       "application/zip",
     ];
     if (allowedMimes.includes(file.mimetype)) return cb(null, true);
-    cb(new Error("Unsupported file type for attachment."));
+    cb(new UploadError("Unsupported file type for attachment."));
   },
 });
 
@@ -82,6 +90,6 @@ export const bulkImportUpload = multer({
     if (validExt && validMime) {
       return cb(null, true);
     }
-    cb(new Error("Bulk imports only accept .xls, .xlsx, or .csv files."));
+    cb(new UploadError("Bulk imports only accept .xls, .xlsx, or .csv files."));
   },
 });
