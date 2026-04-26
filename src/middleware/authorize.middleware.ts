@@ -59,6 +59,7 @@ export function authorize(resource: string, action: string) {
       let matchedDepartmentId: string | null = null;
 
       for (const udr of userPermissions) {
+        if (!udr.role?.permissions) continue;
         const found = udr.role.permissions.find(
           (p) => p.resource === resource && p.action === action
         );
@@ -74,7 +75,7 @@ export function authorize(resource: string, action: string) {
                 userVal = (user as any)[val.split(".")[1]];
               }
 
-              const reqVal = req.body[key] || req.params[key] || req.query[key];
+              const reqVal = req.body?.[key] || req.params?.[key] || req.query?.[key];
               if (reqVal !== undefined && String(reqVal) !== String(userVal)) {
                 conditionsMet = false;
                 break;
