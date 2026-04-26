@@ -31,6 +31,7 @@ const locationRepo = () => AppDataSource.getRepository(Location);
 function hasShipmentAccess(shipment: Shipment, user: User, permissionScope: any): boolean {
   if (user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN) return true;
   const { scope, departmentId } = permissionScope || {};
+  if (scope === PermissionScope.ALL) return true;
   if (scope === PermissionScope.OWN) {
     return shipment.assignedOfficerId === user.id;
   }
@@ -236,6 +237,8 @@ export async function listShipments(req: Request, res: Response) {
         });
       } else if (scope === PermissionScope.OWN) {
         qb.andWhere("s.assignedOfficerId = :uid", { uid: user.id });
+      } else if (scope === PermissionScope.ALL) {
+        // No additional filtering needed for ALL scope
       } else {
         return res.status(403).json({ status: "error", message: "Forbidden: No valid access scope." });
       }
@@ -510,6 +513,8 @@ export async function getShipmentStats(req: Request, res: Response) {
         qb.andWhere("s.departmentId = :deptId", { deptId: departmentId });
       } else if (scope === PermissionScope.OWN) {
         qb.andWhere("s.assignedOfficerId = :uid", { uid: user.id });
+      } else if (scope === PermissionScope.ALL) {
+        // No additional filtering needed
       } else {
         return res.status(403).json({ status: "error", message: "Forbidden: No valid access scope." });
       }
@@ -724,6 +729,8 @@ export async function exportShipments(req: Request, res: Response) {
         qb.andWhere("s.departmentId = :deptId", { deptId: departmentId });
       } else if (scope === PermissionScope.OWN) {
         qb.andWhere("s.assignedOfficerId = :uid", { uid: user.id });
+      } else if (scope === PermissionScope.ALL) {
+        // Unrestricted
       } else {
         return res.status(403).json({ status: "error", message: "Forbidden: No valid access scope." });
       }

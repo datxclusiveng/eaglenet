@@ -16,8 +16,8 @@ export function authorize(resource: string, action: string) {
         return res.status(401).json({ status: "error", message: "Authentication required." });
       }
 
-      // 1. Superadmins bypass all policy checks
-      if (user.role === UserRole.SUPERADMIN) {
+      // 1. Superadmins and Admins bypass all policy checks
+      if (user.role === UserRole.SUPERADMIN || user.role === UserRole.ADMIN) {
         return next();
       }
 
