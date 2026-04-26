@@ -26,6 +26,12 @@ export const shipmentIdParamSchema = z.object({
   }),
 });
 
+export const userIdParamSchema = z.object({
+  params: z.object({
+    userId: z.string().uuid("Invalid User ID format."),
+  }),
+});
+
 export const registerSchema = z.object({
   body: z.object({
     firstName: z.string().min(1, "First name is required"),

@@ -10,6 +10,8 @@ import {
   assignStaff,
 } from "../controllers/department.controller";
 import { auth, adminOnly, superAdminOnly } from "../../../middleware/auth.middleware";
+import { validate } from "../../../middleware/validate.middleware";
+import { uuidParamSchema } from "../../../utils/validators";
 
 const router = Router();
 
@@ -32,14 +34,14 @@ router.get("/roles", ...auth, listRoles);
  * GET /api/departments/:id
  * Single department details with stats
  */
-router.get("/:id", ...auth, getDepartment);
+router.get("/:id", validate(uuidParamSchema), ...auth, getDepartment);
 
 /**
  * GET /api/departments/:id/staff
  * Paginated staff list for a specific department
  * Query: ?page&limit
  */
-router.get("/:id/staff", ...auth, getDepartmentStaff);
+router.get("/:id/staff", validate(uuidParamSchema), ...auth, getDepartmentStaff);
 
 // ─── Write routes (Admin/SuperAdmin only) ─────────────────────────────────────
 
@@ -55,20 +57,20 @@ router.post("/", ...superAdminOnly, createDepartment);
  * Update department
  * Body: { name?, email?, supervisorId?, status?, metadata? }
  */
-router.patch("/:id", ...adminOnly, updateDepartment);
+router.patch("/:id", validate(uuidParamSchema), ...adminOnly, updateDepartment);
 
 /**
  * POST /api/departments/:id/staff
  * Assign an existing staff member to this department with a specific role.
  * Body: { userId, roleId }
  */
-router.post("/:id/staff", ...superAdminOnly, assignStaff);
+router.post("/:id/staff", validate(uuidParamSchema), ...superAdminOnly, assignStaff);
 
 /**
  * DELETE /api/departments/:id
  * Soft-delete department (SuperAdmin only).
  * Blocked if active in-transit shipments exist.
  */
-router.delete("/:id", ...superAdminOnly, deleteDepartment);
+router.delete("/:id", validate(uuidParamSchema), ...superAdminOnly, deleteDepartment);
 
 export default router;

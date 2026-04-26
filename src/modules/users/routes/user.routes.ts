@@ -15,6 +15,8 @@ import {
   updateNotificationPreferences,
 } from "../controllers/user.controller";
 import { auth, adminOnly, superAdminOnly } from "../../../middleware/auth.middleware";
+import { validate } from "../../../middleware/validate.middleware";
+import { userIdParamSchema } from "../../../utils/validators";
 
 const router = Router();
 
@@ -45,7 +47,7 @@ router.get("/staff/search", ...adminOnly, searchStaff);
  * GET /api/users/:userId
  * Admin: get staff profile + department roles + recent activity
  */
-router.get("/:userId", ...adminOnly, getUser);
+router.get("/:userId", validate(userIdParamSchema), ...adminOnly, getUser);
 
 /**
  * POST /api/users/admins
@@ -64,31 +66,31 @@ router.post("/staff", ...superAdminOnly, createStaff);
  * PATCH /api/users/:userId/upgrade
  * SuperAdmin: upgrade a user to admin
  */
-router.patch("/:userId/upgrade", ...superAdminOnly, upgradeToAdmin);
+router.patch("/:userId/upgrade", validate(userIdParamSchema), ...superAdminOnly, upgradeToAdmin);
 
 /**
  * PATCH /api/users/:userId/downgrade
  * SuperAdmin: downgrade an admin back to staff member
  */
-router.patch("/:userId/downgrade", ...superAdminOnly, downgradeToStaff);
+router.patch("/:userId/downgrade", validate(userIdParamSchema), ...superAdminOnly, downgradeToStaff);
 
 /**
  * PATCH /api/users/:userId/deactivate
  * Admin: deactivate a user account (invalidates sessions)
  * Body: { reason? }
  */
-router.patch("/:userId/deactivate", ...adminOnly, deactivateUser);
+router.patch("/:userId/deactivate", validate(userIdParamSchema), ...adminOnly, deactivateUser);
 
 /**
  * PATCH /api/users/:userId/reactivate
  * Admin: reactivate a user account
  */
-router.patch("/:userId/reactivate", ...adminOnly, reactivateUser);
+router.patch("/:userId/reactivate", validate(userIdParamSchema), ...adminOnly, reactivateUser);
 
 /**
  * POST /api/users/:userId/reset-password
  * Admin: force-reset a user's password and return a temp password
  */
-router.post("/:userId/reset-password", ...adminOnly, resetUserPassword);
+router.post("/:userId/reset-password", validate(userIdParamSchema), ...adminOnly, resetUserPassword);
 
 export default router;
