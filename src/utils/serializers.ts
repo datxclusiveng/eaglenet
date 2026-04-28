@@ -53,7 +53,9 @@ export function serializeEntity(entity: any): any {
     'changedBy',
     'performedBy',
     'processedBy',
-    'uploadedBy'
+    'uploadedBy',
+    'sender',
+    'recipient'
   ];
   
   userFields.forEach(field => {

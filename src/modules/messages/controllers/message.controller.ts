@@ -13,13 +13,14 @@ import { uploadFile } from "../../../utils/storage.service";
 import { parsePagination } from "../../../utils/helpers";
 import { AppDataSource } from "../../../../database/data-source";
 import { User as UserEntity } from "../../users/entities/User";
+import { serializeEntity, serializePaginatedResponse } from "../../../utils/serializers";
 
 // ─── GET /api/messages/inbox ────────────────────────────────────────────────────
 export async function inbox(req: Request, res: Response) {
   try {
     const user = (req as any).user as User;
     const threads = await getInbox(user.id);
-    return res.status(200).json({ status: "success", data: threads });
+    return res.status(200).json({ status: "success", data: threads.map(serializeEntity) });
   } catch (err) {
     console.error("[MessageController.inbox]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -47,11 +48,7 @@ export async function threadMessages(req: Request, res: Response) {
     const threadId = [me.id, otherId].sort().join("_");
     markThreadAsRead(`thread_${threadId}`, me.id).catch(console.error);
 
-    return res.status(200).json({
-      status: "success",
-      data: messages,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    });
+    return res.status(200).json(serializePaginatedResponse(messages, { total, page, limit, totalPages: Math.ceil(total / limit) }));
   } catch (err) {
     console.error("[MessageController.thread]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -105,7 +102,7 @@ export async function send(req: Request, res: Response) {
       attachmentName,
     });
 
-    return res.status(201).json({ status: "success", data: message });
+    return res.status(201).json({ status: "success", data: serializeEntity(message) });
   } catch (err) {
     console.error("[MessageController.send]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
