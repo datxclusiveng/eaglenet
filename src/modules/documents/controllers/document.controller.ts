@@ -4,11 +4,13 @@ import { Document, DocumentStatus, VisibilityScope } from "../entities/Document"
 import { User, UserRole } from "../../users/entities/User";
 import { sendPushNotification } from "../../notifications/services/push-notification.service";
 import { NotificationType } from "../../notifications/entities/Notification";
+import { Customer } from "../../customers/entities/Customer";
 import { createDocumentVersion, logDocumentActivity } from "../services/document.service";
 import { DocumentAction } from "../entities/DocumentActivity";
 import { uploadFile } from "../../../utils/storage.service";
 import { parsePagination, paginate } from "../../../utils/helpers";
 import { extractTextFromBuffer } from "../services/text-extractor.service";
+import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 
 const repo = () => AppDataSource.getRepository(Document);
 
@@ -155,5 +157,60 @@ export async function listShipmentDocuments(req: Request, res: Response) {
   } catch (err) {
     console.error("[DocumentController.list]", err);
     return res.status(500).json({ status: "error", message: "Error fetching documents." });
+  }
+}
+
+/**
+ * List all documents for a specific client (across all their shipments).
+ * GET /api/documents/customer/:customerId
+ */
+export async function listCustomerDocuments(req: Request, res: Response) {
+  try {
+    const customerId = req.params.customerId as string;
+    const { page, limit, skip } = parsePagination(req.query);
+    const user = (req as any).user as User;
+    const { departmentId: userDeptId } = (req as any).permissionScope || {};
+
+    // 1. Find the customer to get their email
+    const customer = await AppDataSource.getRepository(Customer).findOneBy({ id: customerId });
+    if (!customer) {
+      return res.status(404).json({ status: "error", message: "Customer not found." });
+    }
+
+    // 2. Query documents belonging to any shipment with this client's email
+    const qb = repo().createQueryBuilder("d")
+      .innerJoin("d.shipment", "s")
+      .where("s.clientEmail = :email", { email: customer.email });
+
+    // Enforce visibility scoping (RBAC)
+    if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN) {
+      qb.andWhere(
+        "(d.visibilityScope = :global OR d.uploaderId = :uid OR (d.visibilityScope = :dept AND d.departmentId = :uDept))",
+        {
+          global: VisibilityScope.GLOBAL,
+          uid: user.id,
+          dept: VisibilityScope.DEPARTMENT,
+          uDept: userDeptId,
+        }
+      );
+    }
+
+    qb.orderBy("d.createdAt", "DESC").skip(skip).take(limit);
+    const [docs, total] = await qb.getManyAndCount();
+
+    createAuditLog({
+      entityType: "Customer",
+      entityId: customerId,
+      action: AuditAction.VIEW,
+      actionDetails: { event: "list_customer_documents", customerEmail: customer.email },
+      performedBy: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return (res as any).success(docs, "Customer documents retrieved successfully.", paginate(total, page, limit));
+  } catch (err) {
+    console.error("[DocumentController.listCustomerDocuments]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }

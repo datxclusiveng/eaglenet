@@ -10,6 +10,14 @@ let io: IOServer | null = null;
 const onlineUsers = new Map<string, Set<string>>();
 
 /**
+ * Returns a list of all currently connected user IDs.
+ */
+export function getOnlineUserIds(): string[] {
+  return Array.from(onlineUsers.keys());
+}
+
+
+/**
  * Initialize Socket.IO with JWT handshake authentication.
  * Clients must connect with: io(url, { auth: { token: "Bearer <jwt>" } })
  *
@@ -79,6 +87,9 @@ export const initSocket = (httpServer: HTTPServer) => {
         socket.join(`dept_${udr.departmentId}`);
       }
 
+      // Join channel rooms if already member (deferred to connection to avoid slowing handshake)
+      socket.data.userId = user.id;
+
       return next();
     } catch (err) {
       console.error("Socket auth middleware error:", err);
@@ -98,6 +109,15 @@ export const initSocket = (httpServer: HTTPServer) => {
 
       // Broadcast presence to all connected clients
       io!.emit("user_online", { userId });
+
+      // Join channel rooms
+      AppDataSource.query(`
+        SELECT channel_id FROM channel_members WHERE user_id = $1
+      `, [userId]).then((channels: any[]) => {
+        for (const row of channels) {
+          socket.join(`channel_${row.channel_id}`);
+        }
+      }).catch(err => console.error("Error joining channel rooms on connect:", err));
     }
 
     // ── Typing indicators ──────────────────────────────────────────────────────
@@ -120,6 +140,28 @@ export const initSocket = (httpServer: HTTPServer) => {
     socket.on("leave_department", (deptId: string) => {
       socket.leave(`dept_${deptId}`);
     });
+
+    // ── Channel Rooms ─────────────────────────────────────────────────────────
+    socket.on("join_channel", (channelId: string) => {
+      if (!channelId) return;
+      socket.join(`channel_${channelId}`);
+    });
+
+    socket.on("leave_channel", (channelId: string) => {
+      socket.leave(`channel_${channelId}`);
+    });
+
+    // ── Channel Typing ────────────────────────────────────────────────────────
+    socket.on("channel_typing_start", (data: { channelId: string }) => {
+      if (!userId || !data.channelId) return;
+      socket.to(`channel_${data.channelId}`).emit("channel_typing_start", { channelId: data.channelId, userId });
+    });
+
+    socket.on("channel_typing_stop", (data: { channelId: string }) => {
+      if (!userId || !data.channelId) return;
+      socket.to(`channel_${data.channelId}`).emit("channel_typing_stop", { channelId: data.channelId, userId });
+    });
+
 
     // ── Ping ──────────────────────────────────────────────────────────────────
     socket.on("ping", (cb: (ack: string) => void) => {

@@ -55,6 +55,16 @@ export async function sendMessage(
       attachmentUrl: message.attachmentUrl,
       sentAt: message.sentAt,
     });
+
+    // Notify recipient's inbox of an update
+    io.to(`user_${recipientId}`).emit("inbox_update", {
+      threadId,
+      lastMessage: {
+        id: message.id,
+        content: message.content,
+        sentAt: message.sentAt,
+      }
+    });
   } catch {
     // Socket not initialized or user offline — DB record still saved
   }
@@ -171,6 +181,16 @@ export async function markMessageAsRead(
 
   message.readAt = new Date();
   await msgRepo().save(message);
+
+  // Emit read receipt to the original sender
+  try {
+    getIO().to(`user_${message.senderId}`).emit("message_read", {
+      messageId,
+      threadId: message.threadId,
+      readAt: message.readAt,
+    });
+  } catch {}
+
   return true;
 }
 
@@ -189,6 +209,23 @@ export async function markThreadAsRead(
     .andWhere("recipientId = :recipientId", { recipientId })
     .andWhere("readAt IS NULL")
     .execute();
+
+  if (result.affected && result.affected > 0) {
+    // Notify the other party that the thread was read
+    try {
+      const io = getIO();
+      // We need to find the senderId of these messages to notify them
+      const lastMsg = await msgRepo().findOne({ where: { threadId }, order: { sentAt: "DESC" } });
+      if (lastMsg) {
+        const otherUserId = lastMsg.senderId === recipientId ? lastMsg.recipientId : lastMsg.senderId;
+        io.to(`user_${otherUserId}`).emit("thread_read", {
+          threadId,
+          readBy: recipientId,
+          readAt: new Date(),
+        });
+      }
+    } catch {}
+  }
 
   return result.affected || 0;
 }

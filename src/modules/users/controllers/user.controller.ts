@@ -12,6 +12,7 @@ import { parsePagination, paginate } from "../../../utils/helpers";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import { serializeUser } from "../../../utils/serializers";
 import crypto from "crypto";
+import { getOnlineUserIds } from "../../../socket";
 
 const userRepo = () => AppDataSource.getRepository(User);
 
@@ -593,3 +594,16 @@ export async function updateNotificationPreferences(req: Request, res: Response)
   }
 }
 
+
+/**
+ * GET list of online staff user IDs
+ */
+export async function getOnlineUsers(_req: Request, res: Response) {
+  try {
+    const onlineIds = getOnlineUserIds();
+    return (res as any).success({ data: onlineIds });
+  } catch (err) {
+    console.error("[UserController.getOnlineUsers]", err);
+    return res.status(500).json({ status: "error", message: "Failed to fetch online users." });
+  }
+}

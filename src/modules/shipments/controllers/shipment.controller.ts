@@ -15,6 +15,7 @@ import { CustomsClearance, CustomsStatus } from "../entities/CustomsClearance";
 import {
   sendBookingConfirmationEmail,
   sendStatusUpdateEmail,
+  send,
 } from "../../notifications/services/email.service";
 import { createNotification } from "../../notifications/services/notification.service";
 import { NotificationType } from "../../notifications/entities/Notification";
@@ -592,6 +593,17 @@ export async function sendManualOfficerEmail(req: Request, res: Response) {
       return res.status(404).json({ status: "error", message: "Shipment not found." });
     }
 
+    // Actually send the email
+    if (shipment.clientEmail || req.body.to) {
+      await send({
+        to: req.body.to || shipment.clientEmail!,
+        subject: subject || `Update regarding Shipment ${shipment.trackingNumber}`,
+        html: body,
+        shipmentId: shipment.id,
+        sentById: user.id,
+      });
+    }
+
     await logActivity(shipment.id, user.id, "manual_email", {
       metadata: { subject, templateId, body_preview: body?.substring(0, 50) },
     });
@@ -761,3 +773,91 @@ export async function exportShipments(req: Request, res: Response) {
     return res.status(500).json({ status: "error", message: "Failed to export shipments." });
   }
 }
+
+/**
+ * Generate a JSON delivery note / manifest.
+ * GET /api/shipments/:id/delivery-note
+ */
+export async function getDeliveryNote(req: Request, res: Response) {
+  try {
+    const id = req.params.id as string;
+    const user = (req as any).user as User;
+
+    const shipment = await repo().findOne({
+      where: { id },
+      relations: ["logs", "logs.changedBy", "department"],
+    });
+
+    if (!shipment) {
+      return res.status(404).json({ status: "error", message: "Shipment not found." });
+    }
+
+    if (shipment.status !== ShipmentStatus.DELIVERED) {
+      return res.status(400).json({ status: "error", message: "Delivery note is only available for delivered shipments." });
+    }
+
+    if (!hasShipmentAccess(shipment, user, (req as any).permissionScope)) {
+      return res.status(403).json({ status: "error", message: "Forbidden: Access denied." });
+    }
+
+    // Only return PUBLIC logs as milestones
+    const milestones = shipment.logs
+      .filter((l) => l.visibility === LogVisibility.PUBLIC)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((l) => ({
+        timestamp: l.createdAt,
+        status: l.newStatus || l.action,
+        location: l.metadata?.location || "N/A",
+        note: l.note,
+      }));
+
+    // Find delivery proof metadata
+    const deliveryProofLog = shipment.logs.find(l => l.action === "delivery_proof_uploaded");
+    if (!deliveryProofLog) {
+      return res.status(404).json({ status: "error", message: "No delivery proof found for this shipment." });
+    }
+
+    const deliveryNote = {
+      documentTitle: "Delivery Note",
+      generatedAt: new Date(),
+      shipment: {
+        trackingNumber: shipment.trackingNumber,
+        shipmentName: shipment.shipmentName,
+        type: shipment.type,
+        status: shipment.status,
+        origin: `${shipment.originCity || ""}, ${shipment.originCountry || ""}`.trim(),
+        destination: `${shipment.destinationCity || ""}, ${shipment.destinationCountry || ""}`.trim(),
+        departureDate: shipment.departureDate,
+        actualDeliveryDate: shipment.actualDeliveryDate,
+        airlineOrVessel: shipment.airlineOrVessel,
+        flightOrVoyageNumber: shipment.flightOrVoyageNumber,
+      },
+      client: {
+        name: shipment.clientName,
+        email: shipment.clientEmail,
+        phone: shipment.clientPhone,
+      },
+      assignedOfficer: shipment.assignedOfficer ? {
+        name: `${shipment.assignedOfficer.firstName} ${shipment.assignedOfficer.lastName}`,
+        email: shipment.assignedOfficer.email,
+      } : null,
+      deliveryProof: {
+        recipientName: deliveryProofLog.metadata?.recipientName,
+        deliveryNotes: deliveryProofLog.metadata?.deliveryNotes,
+        signatureUrl: deliveryProofLog.metadata?.signatureUrl,
+        photoUrl: deliveryProofLog.metadata?.photoUrl,
+        uploadedAt: deliveryProofLog.createdAt,
+      },
+      department: {
+        name: shipment.department?.name,
+      },
+      journey: milestones,
+    };
+
+    return (res as any).success(deliveryNote, "Delivery note generated successfully.");
+  } catch (err) {
+    console.error("[ShipmentController.getDeliveryNote]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+

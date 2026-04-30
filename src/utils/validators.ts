@@ -128,3 +128,44 @@ export const adminConfirmPaymentSchema = z.object({
     }, z.record(z.string(), z.any()).optional()),
   }),
 });
+
+export const createChannelSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, "Channel name is required"),
+    description: z.string().optional(),
+    isPrivate: z.boolean().optional().default(false),
+    departmentId: z.string().uuid("Invalid department ID").optional(),
+  }),
+});
+
+export const sendChannelMessageSchema = z.object({
+  body: z.object({
+    content: z.string().min(1, "Message content is required"),
+    messageType: z.enum(["text", "file"]).optional().default("text"),
+    attachmentUrl: z.string().optional(),
+    attachmentName: z.string().optional(),
+  }),
+});
+
+export const sendMailSchema = z.object({
+  body: z.object({
+    to: z.string().email("Valid email required."),
+    subject: z.string().min(1, "Subject is required."),
+    body: z.string().min(1, "Email body is required."),
+  }),
+});
+
+export const reportFilterSchema = z.object({
+  query: z.object({
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    departmentId: z.string().uuid().optional(),
+    type: z.string().optional(),
+  }),
+});
+
+export const customerIdParamSchema = z.object({
+  params: z.object({
+    customerId: z.string().uuid("Invalid Customer ID format."),
+  }),
+});

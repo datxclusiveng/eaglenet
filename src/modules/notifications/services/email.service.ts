@@ -111,7 +111,7 @@ function compileTemplate(templateName: string, data: any): string {
   }
 }
 
-async function send(payload: EmailPayload) {
+export async function send(payload: EmailPayload) {
   if (!ENABLED) {
     console.info(`[EmailService] Mailing disabled. Subject: ${payload.subject} → ${payload.to}`);
     return;

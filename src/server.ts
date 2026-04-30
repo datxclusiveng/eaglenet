@@ -33,6 +33,9 @@ import documentRoutes from "./modules/documents/routes/document.routes";
 import messageRoutes from "./modules/messages/routes/message.routes";
 import notificationRoutes from "./modules/notifications/routes/notification.routes";
 import customerRoutes from "./modules/customers/routes/customer.routes";
+import reportRoutes from "./modules/reports/routes/report.routes";
+import channelRoutes from "./modules/messages/routes/channel.routes";
+import mailRoutes from "./modules/notifications/routes/mail.routes";
 
 // Load environment variables
 dotenv.config();
@@ -169,6 +172,9 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/customers", customerRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/channels", channelRoutes);
+app.use("/api/mail", mailRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {

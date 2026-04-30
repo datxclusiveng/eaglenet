@@ -14,8 +14,10 @@ import {
   createInternalNote,
   uploadDeliveryProof,
   exportShipments,
+  getDeliveryNote,
 } from "../controllers/shipment.controller";
 import { updateCustomsStatus, getCustomsDetail } from "../controllers/customs.controller";
+import { getShipmentExternalTracking, lookupExternalTrackingFreeform } from "../controllers/tracktrace.controller";
 import { bulkImportShipmentsController } from "../controllers/bulk-import.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
@@ -28,6 +30,14 @@ const router = Router();
 // ─── PUBLIC ROUTES ───────────────────────────────────────────────────────────
 router.get("/services", getServices);
 router.get("/locations", getLocations);
+
+// ─── EXTERNAL TRACKING (AfterShip) ───────────────────────────────────────────
+/**
+ * GET /api/shipments/track-external?trackingNumber=XX&carrier=DHL
+ * Free-form lookup — search any external tracking number across 900+ carriers.
+ * Query params: trackingNumber (required), carrier (optional hint)
+ */
+router.get("/track-external", ...auth, authorize("shipment", "read"), lookupExternalTrackingFreeform);
 router.get("/track/:trackingNumber", trackShipment);
 
 // ─── STAFF/ADMIN ROUTES (PROTECTED) ──────────────────────────────────────────
@@ -51,6 +61,9 @@ router.get("/:id", validate(uuidParamSchema), authorize("shipment", "read"), get
 
 // Status history / full activity log
 router.get("/:id/history", validate(uuidParamSchema), authorize("shipment", "read"), getStatusHistory);
+
+// External tracking via AfterShip (uses shipment's flightOrVoyageNumber)
+router.get("/:id/track-external", validate(uuidParamSchema), authorize("shipment", "read"), getShipmentExternalTracking);
 
 // Customs logic
 router.get("/:shipmentId/customs", validate(shipmentIdParamSchema), authorize("shipment", "read"), getCustomsDetail);
@@ -85,6 +98,10 @@ router.post("/:id/notes", validate(uuidParamSchema), authorize("shipment", "upda
 
 // Send manual email
 router.post("/:id/email", validate(uuidParamSchema), authorize("shipment", "update"), sendManualOfficerEmail);
+
+// JSON Delivery Note / Manifest
+router.get("/:id/delivery-note", validate(uuidParamSchema), authorize("shipment", "read"), getDeliveryNote);
+
 
 // Bulk import
 router.post(

@@ -13,6 +13,7 @@ import {
   myDashboard,
   getNotificationPreferences,
   updateNotificationPreferences,
+  getOnlineUsers,
 } from "../controllers/user.controller";
 import { auth, adminOnly, superAdminOnly } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
@@ -27,6 +28,13 @@ const router = Router();
 router.get("/me/dashboard", ...auth, myDashboard);
 router.get("/me/notifications/preferences", ...auth, getNotificationPreferences);
 router.patch("/me/notifications/preferences", ...auth, updateNotificationPreferences);
+
+/**
+ * GET /api/users/online
+ * List of currently connected staff user IDs
+ */
+router.get("/online", ...auth, getOnlineUsers);
+
 
 // ─── Admin-only routes ─────────────────────────────────────────────────────────
 

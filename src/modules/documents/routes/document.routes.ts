@@ -3,6 +3,7 @@ import {
   uploadDocument,
   updateDocumentStatus,
   listShipmentDocuments,
+  listCustomerDocuments,
 } from "../controllers/document.controller";
 import {
   listArchive,
@@ -17,7 +18,7 @@ import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { documentUpload, validateFileContent } from "../../../middleware/upload.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
 import { validate } from "../../../middleware/validate.middleware";
-import { uploadDocumentSchema, uuidParamSchema, shipmentIdParamSchema } from "../../../utils/validators";
+import { uploadDocumentSchema, uuidParamSchema, shipmentIdParamSchema, customerIdParamSchema } from "../../../utils/validators";
 
 const router = Router();
 
@@ -55,6 +56,18 @@ router.get(
   authorize("document", "read"),
   listShipmentDocuments
 );
+
+/**
+ * List by Customer (across all shipments)
+ */
+router.get(
+  "/customer/:customerId",
+  validate(customerIdParamSchema),
+  ...auth,
+  authorize("document", "read"),
+  listCustomerDocuments
+);
+
 
 /**
  * EDMS: Upload a new version of an existing document
