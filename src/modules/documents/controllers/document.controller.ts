@@ -179,6 +179,10 @@ export async function listCustomerDocuments(req: Request, res: Response) {
 
     // 2. Query documents belonging to any shipment with this client's email
     const qb = repo().createQueryBuilder("d")
+      .select([
+        "d.id", "d.name", "d.fileUrl", "d.contentType", "d.documentType",
+        "d.status", "d.visibilityScope", "d.isArchived", "d.createdAt"
+      ])
       .innerJoin("d.shipment", "s")
       .where("s.clientEmail = :email", { email: customer.email });
 

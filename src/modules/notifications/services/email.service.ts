@@ -57,6 +57,7 @@ async function logEmail(payload: EmailPayload, status: EmailStatus, error?: stri
       templateUsed: payload.templateUsed,
       sentById: payload.sentById,
       status,
+      body: payload.html,
       errorMessage: error,
     });
     await repo.save(log);

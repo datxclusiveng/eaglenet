@@ -58,6 +58,9 @@ export class EmailLog {
   @JoinColumn({ name: "sent_by" })
   sentBy?: User;
 
+  @Column({ type: "text", nullable: true })
+  body?: string;
+
   @Column({ name: "error_message", type: "text", nullable: true })
   errorMessage?: string;
 

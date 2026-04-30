@@ -7,6 +7,11 @@ import {
   markThreadRead,
   remove,
 } from "../controllers/message.controller";
+import {
+  sendInviteController,
+  respondToInviteController,
+  listPendingInvitesController,
+} from "../controllers/invite.controller";
 import { auth } from "../../../middleware/auth.middleware";
 import { uploadMiddleware, validateFileContent } from "../../../middleware/upload.middleware";
 
@@ -14,6 +19,14 @@ const router = Router();
 
 // All messaging routes require authentication
 router.use(...auth);
+
+/**
+ * Chat Invitations
+ */
+router.get("/invites", listPendingInvitesController);
+router.post("/invites", sendInviteController);
+router.patch("/invites/respond", respondToInviteController);
+
 
 /**
  * GET /api/messages/inbox

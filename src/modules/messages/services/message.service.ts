@@ -3,6 +3,7 @@ import { Message, MessageType } from "../entities/Message";
 import { Notification } from "../../notifications/entities/Notification";
 import { NotificationType } from "../../notifications/entities/Notification";
 import { getIO } from "../../../socket";
+import { checkConnection } from "./invite.service";
 
 const msgRepo = () => AppDataSource.getRepository(Message);
 
@@ -28,6 +29,11 @@ export async function sendMessage(
     attachmentName?: string;
   } = {}
 ): Promise<Message> {
+  const isConnected = await checkConnection(senderId, recipientId);
+  if (!isConnected) {
+    throw new Error("You must have an accepted chat invitation to send messages to this user.");
+  }
+
   const threadId = buildThreadId(senderId, recipientId);
 
   const message = msgRepo().create({
