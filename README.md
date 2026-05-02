@@ -617,6 +617,8 @@ Use these strings when creating permissions:
 | **workflow** | `create`, `read`, `update`, `attach` |
 | **audit** | `read` |
 | **department**| `create`, `read`, `update`, `delete` |
+| **message** | `create`, `read`, `update`, `delete` |
+| **channel** | `create`, `read`, `update`, `delete` |
 
 **Discovery Endpoint:**
 ```http

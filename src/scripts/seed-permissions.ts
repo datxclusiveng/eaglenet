@@ -62,6 +62,18 @@ const permissions = [
   // Customer CRM
   { resource: "customer", action: "create", scope: PermissionScope.ALL },
   { resource: "customer", action: "read", scope: PermissionScope.ALL },
+
+  // Messaging
+  { resource: "message", action: "create", scope: PermissionScope.ALL },
+  { resource: "message", action: "read", scope: PermissionScope.ALL },
+  { resource: "message", action: "update", scope: PermissionScope.ALL },
+  { resource: "message", action: "delete", scope: PermissionScope.ALL },
+
+  // Channels
+  { resource: "channel", action: "create", scope: PermissionScope.ALL },
+  { resource: "channel", action: "read", scope: PermissionScope.ALL },
+  { resource: "channel", action: "update", scope: PermissionScope.ALL },
+  { resource: "channel", action: "delete", scope: PermissionScope.ALL },
 ];
 
 export async function seedPermissions() {
