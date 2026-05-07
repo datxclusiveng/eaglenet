@@ -74,6 +74,12 @@ const permissions = [
   { resource: "channel", action: "read", scope: PermissionScope.ALL },
   { resource: "channel", action: "update", scope: PermissionScope.ALL },
   { resource: "channel", action: "delete", scope: PermissionScope.ALL },
+
+  // Mail
+  { resource: "mail", action: "read", scope: PermissionScope.ALL },
+  { resource: "mail", action: "send", scope: PermissionScope.ALL },
+  { resource: "mail", action: "read", scope: PermissionScope.DEPARTMENT },
+  { resource: "mail", action: "send", scope: PermissionScope.DEPARTMENT },
 ];
 
 export async function seedPermissions() {
