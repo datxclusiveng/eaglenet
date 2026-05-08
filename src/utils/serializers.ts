@@ -54,6 +54,7 @@ export function serializeEntity(entity: any): any {
     'performedBy',
     'processedBy',
     'uploadedBy',
+    'uploader',
     'sender',
     'recipient'
   ];

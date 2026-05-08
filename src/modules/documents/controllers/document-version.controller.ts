@@ -11,6 +11,7 @@ import {
 import { DocumentAction } from "../entities/DocumentActivity";
 import { uploadFile } from "../../../utils/storage.service";
 import { parsePagination, paginate } from "../../../utils/helpers";
+import { serializeEntity, serializePaginatedResponse } from "../../../utils/serializers";
 
 const docRepo = () => AppDataSource.getRepository(Document);
 
@@ -52,11 +53,12 @@ export async function uploadDocumentVersion(req: Request, res: Response) {
         fileUrl: url,
         fileKey: key,
         contentType: req.file.mimetype,
+        fileSize: req.file.size,
       },
       comment
     );
 
-    return res.status(201).json({ status: "success", data: version });
+    return res.status(201).json({ status: "success", data: serializeEntity(version) });
   } catch (err) {
     console.error("[DocumentVersionController.upload]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -78,7 +80,7 @@ export async function listDocumentVersions(req: Request, res: Response) {
     }
 
     const [versions, total] = await getDocumentVersions(documentId, { skip, take: limit });
-    return res.status(200).json({ status: "success", data: versions, meta: paginate(total, page, limit) });
+    return res.status(200).json(serializePaginatedResponse(versions, paginate(total, page, limit)));
   } catch (err) {
     console.error("[DocumentVersionController.list]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
@@ -104,7 +106,7 @@ export async function getDocumentActivityLog(req: Request, res: Response) {
     await logDocumentActivity(documentId, user.id, DocumentAction.VIEWED);
 
     const [activity, total] = await getDocumentActivity(documentId, { skip, take: limit });
-    return res.status(200).json({ status: "success", data: activity, meta: paginate(total, page, limit) });
+    return res.status(200).json(serializePaginatedResponse(activity, paginate(total, page, limit)));
   } catch (err) {
     console.error("[DocumentVersionController.activity]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });

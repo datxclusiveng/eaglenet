@@ -3,6 +3,7 @@ import { AppDataSource } from "../../../../database/data-source";
 import { Document, VisibilityScope } from "../entities/Document";
 import { User, UserRole } from "../../users/entities/User";
 import { parsePagination, paginate } from "../../../utils/helpers";
+import { serializePaginatedResponse } from "../../../utils/serializers";
 
 const repo = () => AppDataSource.getRepository(Document);
 
@@ -64,11 +65,7 @@ export async function listArchive(req: Request, res: Response) {
     qb.orderBy("d.createdAt", "DESC").skip(skip).take(limit);
     const [docs, total] = await qb.getManyAndCount();
 
-    return res.status(200).json({
-      status: "success",
-      data: docs,
-      meta: paginate(total, page, limit),
-    });
+    return res.status(200).json(serializePaginatedResponse(docs, paginate(total, page, limit)));
   } catch (err) {
     console.error("[ArchiveController.list]", err);
     return res.status(500).json({ status: "error", message: "Error fetching archive." });

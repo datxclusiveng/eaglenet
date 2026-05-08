@@ -30,7 +30,11 @@ export class Document {
   fileUrl!: string;
 
   @Column({ name: "file_key" })
-  fileKey!: string; // S3/B1 Key
+  fileKey!: string; // B2 object key
+
+  /** Size of the uploaded file in bytes. Stored as a string-backed bigint. */
+  @Column({ name: "file_size", type: "bigint", nullable: true })
+  fileSize?: number;
 
   @Column({ name: "content_type" })
   contentType!: string;

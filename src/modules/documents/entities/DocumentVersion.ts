@@ -32,6 +32,10 @@ export class DocumentVersion {
   @Column({ name: "content_type" })
   contentType!: string;
 
+  /** Size of this version's file in bytes. */
+  @Column({ name: "file_size", type: "bigint", nullable: true })
+  fileSize?: number;
+
   /**
    * Monotonically increasing within a document.
    * Starts at 1 and is incremented by the service on each new upload.

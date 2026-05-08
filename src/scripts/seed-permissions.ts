@@ -28,6 +28,7 @@ const permissions = [
   { resource: "document", action: "create", scope: PermissionScope.ALL },
   { resource: "document", action: "read", scope: PermissionScope.ALL },
   { resource: "document", action: "update", scope: PermissionScope.ALL },
+  { resource: "document", action: "delete", scope: PermissionScope.ALL },
   { resource: "document", action: "verify", scope: PermissionScope.ALL },
   
   // Workflow

@@ -11,7 +11,7 @@ const activityRepo = () => AppDataSource.getRepository(DocumentActivity);
 export async function createDocumentVersion(
   documentId: string,
   uploaderId: string,
-  fileData: { fileUrl: string; fileKey: string; contentType: string },
+  fileData: { fileUrl: string; fileKey: string; contentType: string; fileSize?: number },
   comment: string
 ): Promise<DocumentVersion> {
   const doc = await docRepo().findOneOrFail({ where: { id: documentId } });
@@ -25,6 +25,7 @@ export async function createDocumentVersion(
     fileUrl: fileData.fileUrl,
     fileKey: fileData.fileKey,
     contentType: fileData.contentType,
+    fileSize: fileData.fileSize,
     versionNumber,
     uploaderId,
     comment,

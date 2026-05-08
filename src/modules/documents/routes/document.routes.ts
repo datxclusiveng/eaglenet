@@ -4,6 +4,8 @@ import {
   updateDocumentStatus,
   listShipmentDocuments,
   listCustomerDocuments,
+  getDocumentDownloadUrl,
+  deleteDocument,
 } from "../controllers/document.controller";
 import {
   listArchive,
@@ -19,6 +21,7 @@ import { documentUpload, validateFileContent } from "../../../middleware/upload.
 import { authorize } from "../../../middleware/authorize.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { uploadDocumentSchema, uuidParamSchema, shipmentIdParamSchema, customerIdParamSchema } from "../../../utils/validators";
+import { storageHealthCheck } from "../controllers/storage-health.controller";
 
 const router = Router();
 
@@ -33,6 +36,17 @@ router.post(
   validateFileContent,
   validate(uploadDocumentSchema),
   uploadDocument
+);
+
+/**
+ * Storage connectivity check — verifies Backblaze B2 (or local) is reachable.
+ * GET /api/documents/storage/health
+ * Restricted to Admin / Superadmin only — no secrets exposed in response.
+ */
+router.get(
+  "/storage/health",
+  ...adminOnly,
+  storageHealthCheck
 );
 
 /**
@@ -66,6 +80,31 @@ router.get(
   ...auth,
   authorize("document", "read"),
   listCustomerDocuments
+);
+
+
+/**
+ * Presigned download URL — returns a 1-hour signed B2 URL.
+ * GET /api/documents/:id/download
+ */
+router.get(
+  "/:id/download",
+  validate(uuidParamSchema),
+  ...auth,
+  authorize("document", "read"),
+  getDocumentDownloadUrl
+);
+
+/**
+ * Delete a document from B2 storage and soft-delete the DB record.
+ * DELETE /api/documents/:id
+ */
+router.delete(
+  "/:id",
+  validate(uuidParamSchema),
+  ...auth,
+  authorize("document", "delete"),
+  deleteDocument
 );
 
 

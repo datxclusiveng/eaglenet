@@ -13,6 +13,7 @@ import { Document } from "./Document";
 export enum DocumentAction {
   UPLOADED = "UPLOADED",
   VIEWED = "VIEWED",
+  DOWNLOADED = "DOWNLOADED",
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
   NEW_VERSION = "NEW_VERSION",

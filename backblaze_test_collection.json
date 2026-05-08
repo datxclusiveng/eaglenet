@@ -1,0 +1,258 @@
+{
+  "info": {
+    "name": "EagleNet Backblaze B2 Testing",
+    "description": "Postman Collection for testing Document Management with Backblaze B2 integration.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "token",
+      "value": "<YOUR_ACCESS_TOKEN>"
+    },
+    {
+      "key": "documentId",
+      "value": ""
+    },
+    {
+      "key": "shipmentId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health Check",
+      "item": [
+        {
+          "name": "Storage Connectivity Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/documents/storage/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "storage",
+                "health"
+              ]
+            },
+            "description": "Verifies that the API can connect to the Backblaze B2 bucket."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Upload Process",
+      "item": [
+        {
+          "name": "Upload Document (Initial)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a file to upload to B2"
+                },
+                {
+                  "key": "name",
+                  "value": "Test Document B2",
+                  "type": "text"
+                },
+                {
+                  "key": "documentType",
+                  "value": "MANIFEST",
+                  "type": "text"
+                },
+                {
+                  "key": "shipmentId",
+                  "value": "{{shipmentId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "commitMessage",
+                  "value": "Testing B2 integration",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents"
+              ]
+            },
+            "description": "Uploads a file to B2 and saves metadata (including fileSize) to the database."
+          }
+        },
+        {
+          "name": "Upload New Version",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a NEW version of the file"
+                },
+                {
+                  "key": "comment",
+                  "value": "V2 with more data",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/documents/{{documentId}}/versions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "{{documentId}}",
+                "versions"
+              ]
+            },
+            "description": "Uploads a new version of the document to B2."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Retrieval",
+      "item": [
+        {
+          "name": "List Shipment Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/documents/shipment/{{shipmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "shipment",
+                "{{shipmentId}}"
+              ]
+            },
+            "description": "Verify fileUrl and fileSize in the response."
+          }
+        },
+        {
+          "name": "Get Presigned Download URL",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/documents/{{documentId}}/download",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "{{documentId}}",
+                "download"
+              ]
+            },
+            "description": "Generates a short-lived secure link to download the private B2 file."
+          }
+        },
+        {
+          "name": "List Document Versions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/documents/{{documentId}}/versions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "{{documentId}}",
+                "versions"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Management",
+      "item": [
+        {
+          "name": "Delete Document (Hard Delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/documents/{{documentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "{{documentId}}"
+              ]
+            },
+            "description": "Permanently removes file from B2 and soft-deletes DB record."
+          }
+        }
+      ]
+    }
+  ]
+}
