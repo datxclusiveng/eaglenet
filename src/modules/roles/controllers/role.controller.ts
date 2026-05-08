@@ -68,3 +68,36 @@ export async function updateRolePermissions(req: Request, res: Response) {
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }
+
+export async function deleteRole(req: Request, res: Response) {
+  try {
+    const id = req.params.id as string;
+
+    const role = await repo().findOne({ where: { id } });
+    if (!role) {
+      return res.status(404).json({ status: "error", message: "Role not found." });
+    }
+
+    // Check if any users are assigned to this role
+    const assignmentCount = await AppDataSource.getRepository("user_department_roles").count({
+      where: { roleId: id },
+    });
+
+    if (assignmentCount > 0) {
+      return res.status(400).json({
+        status: "error",
+        message: `Cannot delete role: ${assignmentCount} user(s) are still assigned to it.`,
+      });
+    }
+
+    await repo().softDelete(id);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Role deleted successfully.",
+    });
+  } catch (err) {
+    console.error("[RoleController.delete]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}

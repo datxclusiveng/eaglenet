@@ -4,10 +4,13 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { AppDataSource } from "../../../../database/data-source";
 import { User, UserRole } from "../../users/entities/User";
+import { PasswordReset } from "../entities/PasswordReset";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import { serializeUser } from "../../../utils/serializers";
+import * as EmailService from "../../notifications/services/email.service";
 
 const userRepo = () => AppDataSource.getRepository(User);
+const resetRepo = () => AppDataSource.getRepository(PasswordReset);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -329,6 +332,113 @@ export async function changePassword(req: Request, res: Response) {
     return (res as any).success(null, "Password changed successfully. Please login again.");
   } catch (err) {
     console.error("[AuthController.changePassword]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
+// ─── Forgot Password (OTP) ──────────────────────────────────────────────────
+
+export async function forgotPassword(req: Request, res: Response) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ status: "error", message: "Email is required." });
+    }
+
+    const user = await userRepo().findOne({ where: { email: email.toLowerCase().trim() } });
+    if (!user) {
+      // Security: Don't reveal that the user doesn't exist
+      return (res as any).success(null, "If that email is associated with an account, a password reset code has been sent.");
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    // Save reset record
+    const reset = resetRepo().create({
+      email: user.email,
+      code,
+      expiresAt,
+    });
+    await resetRepo().save(reset);
+
+    // Send Email
+    await EmailService.sendPasswordResetCodeEmail(user.email, user.firstName, code);
+
+    createAuditLog({
+      entityType: "User",
+      entityId: user.id,
+      action: AuditAction.PASSWORD_RESET,
+      actionDetails: { event: "reset_code_sent" },
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return (res as any).success(null, "If that email is associated with an account, a password reset code has been sent.");
+  } catch (err) {
+    console.error("[AuthController.forgotPassword]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
+// ─── Reset Password ─────────────────────────────────────────────────────────
+
+export async function resetPassword(req: Request, res: Response) {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ status: "error", message: "Email, code, and new password are required." });
+    }
+
+    const user = await userRepo().findOne({ where: { email: email.toLowerCase().trim() } });
+    if (!user) {
+      return res.status(404).json({ status: "error", message: "User not found." });
+    }
+
+    // Find the latest unused code for this email
+    const reset = await resetRepo().findOne({
+      where: { email: user.email, code, isUsed: false },
+      order: { createdAt: "DESC" },
+    });
+
+    if (!reset) {
+      return res.status(400).json({ status: "error", message: "Invalid or expired reset code." });
+    }
+
+    if (new Date() > reset.expiresAt) {
+      return res.status(400).json({ status: "error", message: "Reset code has expired." });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ status: "error", message: "Password must be at least 6 characters." });
+    }
+
+    // Update User
+    user.password = await bcrypt.hash(newPassword, 12);
+    user.refreshToken = undefined;
+    user.refreshTokenExpiresAt = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await userRepo().save(user);
+
+    // Mark code as used
+    reset.isUsed = true;
+    await resetRepo().save(reset);
+
+    createAuditLog({
+      entityType: "User",
+      entityId: user.id,
+      action: AuditAction.PASSWORD_RESET,
+      actionDetails: { event: "password_reset_success" },
+      performedBy: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return (res as any).success(null, "Password reset successful. Please login with your new password.");
+  } catch (err) {
+    console.error("[AuthController.resetPassword]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }

@@ -230,3 +230,18 @@ export async function sendPasswordResetEmail(to: string, resetLink: string) {
         }
     });
 }
+
+export async function sendPasswordResetCodeEmail(to: string, fullName: string, code: string) {
+    await send({
+        to,
+        subject: `Password Reset Code: ${code}`,
+        templateUsed: "notification",
+        templateData: {
+            title: "Password Reset Request",
+            userName: fullName,
+            mainContent: `You have requested a password reset. Please use the following code to complete the process. This code expires in 15 minutes.`,
+            shipmentId: code, // Reusing the shipmentId slot for the bold code display in the template
+            status: "RESET CODE",
+        }
+    });
+}

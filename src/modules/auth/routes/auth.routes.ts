@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { register, login, me, refresh, logout, logoutAll, changePassword } from "../controllers/auth.controller";
+import { register, login, me, refresh, logout, logoutAll, changePassword, forgotPassword, resetPassword } from "../controllers/auth.controller";
 import { auth } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { registerSchema, loginSchema } from "../../../utils/validators";
@@ -17,6 +17,18 @@ router.post("/register", validate(registerSchema), register);
  * Body: { email, password }
  */
 router.post("/login", validate(loginSchema), login);
+
+/**
+ * POST /api/auth/forgot-password
+ * Body: { email }
+ */
+router.post("/forgot-password", forgotPassword);
+
+/**
+ * POST /api/auth/reset-password
+ * Body: { email, code, newPassword }
+ */
+router.post("/reset-password", resetPassword);
 
 /**
  * GET /api/auth/me

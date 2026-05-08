@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listRoles, createRole, updateRolePermissions } from "../controllers/role.controller";
+import { listRoles, createRole, updateRolePermissions, deleteRole } from "../controllers/role.controller";
 import { auth, superAdminOnly } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { uuidParamSchema } from "../../../utils/validators";
@@ -17,6 +17,12 @@ router.get("/", ...auth, listRoles);
  * POST /api/roles
  */
 router.post("/", ...superAdminOnly, createRole);
+
+/**
+ * Delete a role (soft-delete)
+ * DELETE /api/roles/:id
+ */
+router.delete("/:id", validate(uuidParamSchema), ...superAdminOnly, deleteRole);
 
 /**
  * Update permissions for an existing role
