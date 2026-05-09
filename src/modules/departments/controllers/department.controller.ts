@@ -278,6 +278,76 @@ export async function assignStaff(req: Request, res: Response) {
   }
 }
 
+// ─── Unassign a role from a staff member in a department ──────────────────────
+export async function unassignStaff(req: Request, res: Response) {
+  try {
+    const actor = (req as any).user as User;
+    const departmentId = req.params.id as string;
+    const userId = req.params.userId as string;
+    const roleId = req.params.roleId as string;
+
+    const udrRepo = AppDataSource.getRepository(UserDepartmentRole);
+
+    // Confirm the specific assignment exists
+    const assignment = await udrRepo.findOne({
+      where: { userId, departmentId, roleId },
+      relations: ["user", "role", "department"],
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        status: "error",
+        message: "Assignment not found. The user may not have this role in this department.",
+      });
+    }
+
+    // Safety check: prevent removing a staff member's only department-role assignment
+    const totalAssignments = await udrRepo.count({ where: { userId } });
+    if (totalAssignments <= 1) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Cannot remove the staff member's only department assignment. " +
+          "Reassign them to another department/role first, or deactivate their account.",
+      });
+    }
+
+    // Remove the UDR record
+    await udrRepo.remove(assignment);
+
+    // Decrement the denormalized totalStaff counter on the department
+    await repo().decrement({ id: departmentId }, "totalStaff", 1);
+
+    createAuditLog({
+      entityType: "User",
+      entityId: userId,
+      action: AuditAction.UPDATE,
+      actionDetails: {
+        event: "role_unassigned",
+        departmentId,
+        departmentName: assignment.department?.name,
+        roleId,
+        roleName: assignment.role?.name,
+        removedBy: actor.id,
+      },
+      performedBy: actor.id,
+      departmentId,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return res.status(200).json({
+      status: "success",
+      message: `Role '${assignment.role?.name}' has been unassigned from ${
+        assignment.user?.firstName
+      } ${assignment.user?.lastName} in department '${assignment.department?.name}'.`,
+    });
+  } catch (err) {
+    console.error("[DepartmentController.unassignStaff]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
 // ─── Delete (soft) department ──────────────────────────────────────────────────
 export async function deleteDepartment(req: Request, res: Response) {
   try {

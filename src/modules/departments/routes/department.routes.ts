@@ -8,10 +8,11 @@ import {
   getDepartmentStaff,
   listRoles,
   assignStaff,
+  unassignStaff,
 } from "../controllers/department.controller";
 import { auth, adminOnly, superAdminOnly } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
-import { uuidParamSchema } from "../../../utils/validators";
+import { uuidParamSchema, unassignStaffParamSchema } from "../../../utils/validators";
 
 const router = Router();
 
@@ -65,6 +66,19 @@ router.patch("/:id", validate(uuidParamSchema), ...adminOnly, updateDepartment);
  * Body: { userId, roleId }
  */
 router.post("/:id/staff", validate(uuidParamSchema), ...superAdminOnly, assignStaff);
+
+/**
+ * DELETE /api/departments/:id/staff/:userId/roles/:roleId
+ * Unassign a specific role from a staff member within this department.
+ * Requires all three IDs (departmentId, userId, roleId) to be valid UUIDs.
+ * Blocked if this is the staff member's only assignment.
+ */
+router.delete(
+  "/:id/staff/:userId/roles/:roleId",
+  validate(unassignStaffParamSchema),
+  ...superAdminOnly,
+  unassignStaff,
+);
 
 /**
  * DELETE /api/departments/:id

@@ -169,3 +169,11 @@ export const customerIdParamSchema = z.object({
     customerId: z.string().uuid("Invalid Customer ID format."),
   }),
 });
+
+export const unassignStaffParamSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid Department ID format."),
+    userId: z.string().uuid("Invalid User ID format."),
+    roleId: z.string().uuid("Invalid Role ID format."),
+  }),
+});
