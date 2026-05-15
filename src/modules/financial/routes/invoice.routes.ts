@@ -3,20 +3,27 @@ import {
   createInvoiceHandler,
   listInvoicesHandler,
   getInvoiceHandler,
+  updateInvoiceHandler,
   updateInvoiceStatusHandler,
+  submitForVerificationHandler,
+  verifyInvoiceHandler,
+  approveInvoiceHandler,
+  rejectInvoiceHandler,
+  sendInvoiceHandler,
   deleteInvoiceHandler,
 } from "../controllers/invoice.controller";
 import { auth, adminOnly } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
 import { validate } from "../../../middleware/validate.middleware";
-import { createInvoiceSchema, updateInvoiceStatusSchema } from "../../../utils/validators";
+import {
+  createInvoiceSchema,
+  updateInvoiceSchema,
+  updateInvoiceStatusSchema,
+  rejectInvoiceSchema,
+} from "../../../utils/validators";
 
 const router = Router();
 
-/**
- * Admin: Create a new invoice (standalone or shipment-linked)
- * POST /api/invoices
- */
 router.post(
   "/",
   ...adminOnly,
@@ -25,10 +32,6 @@ router.post(
   createInvoiceHandler
 );
 
-/**
- * Admin: List all invoices (paginated, filterable by status)
- * GET /api/invoices?status=SENT
- */
 router.get(
   "/",
   ...adminOnly,
@@ -36,10 +39,6 @@ router.get(
   listInvoicesHandler
 );
 
-/**
- * Staff / Admin: Single invoice detail
- * GET /api/invoices/:id
- */
 router.get(
   "/:id",
   ...auth,
@@ -47,10 +46,14 @@ router.get(
   getInvoiceHandler
 );
 
-/**
- * Admin: Update invoice status
- * PATCH /api/invoices/:id/status
- */
+router.put(
+  "/:id",
+  ...auth,
+  authorize("invoice", "update"),
+  validate(updateInvoiceSchema),
+  updateInvoiceHandler
+);
+
 router.patch(
   "/:id/status",
   ...adminOnly,
@@ -59,10 +62,42 @@ router.patch(
   updateInvoiceStatusHandler
 );
 
-/**
- * Admin: Soft-delete an invoice
- * DELETE /api/invoices/:id
- */
+router.post(
+  "/:id/submit",
+  ...auth,
+  authorize("invoice", "update"),
+  submitForVerificationHandler
+);
+
+router.post(
+  "/:id/verify",
+  ...adminOnly,
+  authorize("invoice", "update"),
+  verifyInvoiceHandler
+);
+
+router.post(
+  "/:id/approve",
+  ...adminOnly,
+  authorize("invoice", "update"),
+  approveInvoiceHandler
+);
+
+router.post(
+  "/:id/reject",
+  ...adminOnly,
+  authorize("invoice", "update"),
+  validate(rejectInvoiceSchema),
+  rejectInvoiceHandler
+);
+
+router.post(
+  "/:id/send",
+  ...adminOnly,
+  authorize("invoice", "update"),
+  sendInvoiceHandler
+);
+
 router.delete(
   "/:id",
   ...adminOnly,

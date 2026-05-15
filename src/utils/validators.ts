@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { InvoiceStatus } from "../modules/financial/entities/Invoice";
 import { ShipmentStatus } from "../modules/shipments/entities/Shipment";
+import { BankAccountType } from "../modules/financial/entities/BankAccount";
 
 export const updateShipmentStatusSchema = z.object({
   body: z.object({
@@ -88,10 +89,51 @@ export const createInvoiceSchema = z.object({
       quantity: z.number().positive("Quantity must be positive"),
       price: z.number().positive("Price must be positive"),
     })).min(1, "At least one item is required"),
-    taxRate: z.number().min(0).optional(),
-    dueDate: z.string().optional(),
+    taxRate: z.number().min(0).max(100).optional().default(0),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD").optional(),
     notes: z.string().optional(),
-    currency: z.string().min(3).max(3).default("NGN"),
+    currency: z.string().length(3).default("NGN"),
+    invoiceFormat: z.enum(["naira", "foreign"]).default("naira"),
+    bankAccountId: z.string().uuid("Invalid bank account ID").optional(),
+    shipmentFields: z.object({
+      fileNumber: z.string().optional(),
+      yourRef: z.string().optional(),
+      numberOfPackages: z.number().int().positive().optional(),
+      grossWeight: z.number().positive().optional(),
+      chargeableWeight: z.number().positive().optional(),
+      cubit: z.number().positive().optional(),
+      awbBlNumber: z.string().optional(),
+      jobDescription: z.string().optional(),
+    }).optional(),
+  }),
+});
+
+export const updateInvoiceSchema = z.object({
+  body: z.object({
+    fileNumber: z.string().optional(),
+    yourRef: z.string().optional(),
+    numberOfPackages: z.number().int().positive().optional(),
+    grossWeight: z.number().positive().optional(),
+    chargeableWeight: z.number().positive().optional(),
+    cubit: z.number().positive().optional(),
+    awbBlNumber: z.string().optional(),
+    jobDescription: z.string().optional(),
+    items: z.array(z.object({
+      description: z.string().min(1, "Description is required"),
+      quantity: z.number().positive("Quantity must be positive"),
+      price: z.number().positive("Price must be positive"),
+    })).min(1, "At least one item is required").optional(),
+    taxRate: z.number().min(0).max(100).optional(),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD").optional(),
+    notes: z.string().optional(),
+    currency: z.string().length(3).optional(),
+    invoiceFormat: z.enum(["naira", "foreign"]).optional(),
+    bankAccountId: z.string().uuid("Invalid bank account ID").optional(),
+    clientName: z.string().optional(),
+    clientEmail: z.string().email("Invalid email").optional(),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid invoice ID"),
   }),
 });
 
@@ -100,6 +142,55 @@ export const updateInvoiceStatusSchema = z.object({
     status: z.nativeEnum(InvoiceStatus, {
       message: "Invalid status value",
     }),
+  }),
+});
+
+export const rejectInvoiceSchema = z.object({
+  body: z.object({
+    reason: z.string().min(1, "Rejection reason is required"),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid invoice ID"),
+  }),
+});
+
+export const createBankAccountSchema = z.object({
+  body: z.object({
+    accountName: z.string().min(1, "Account name is required"),
+    accountNumber: z.string().min(1, "Account number is required"),
+    bankName: z.string().min(1, "Bank name is required"),
+    bankAddress: z.string().optional(),
+    sortCode: z.string().optional(),
+    swiftCode: z.string().optional(),
+    intermediaryBank: z.string().optional(),
+    intermediarySwift: z.string().optional(),
+    tin: z.string().optional(),
+    additionalInfo: z.string().optional(),
+    currency: z.string().length(3).default("NGN"),
+    accountType: z.nativeEnum(BankAccountType),
+    isDefault: z.boolean().optional().default(false),
+  }),
+});
+
+export const updateBankAccountSchema = z.object({
+  body: z.object({
+    accountName: z.string().min(1).optional(),
+    accountNumber: z.string().min(1).optional(),
+    bankName: z.string().min(1).optional(),
+    bankAddress: z.string().optional(),
+    sortCode: z.string().optional(),
+    swiftCode: z.string().optional(),
+    intermediaryBank: z.string().optional(),
+    intermediarySwift: z.string().optional(),
+    tin: z.string().optional(),
+    additionalInfo: z.string().optional(),
+    currency: z.string().length(3).optional(),
+    accountType: z.nativeEnum(BankAccountType).optional(),
+    isActive: z.boolean().optional(),
+    isDefault: z.boolean().optional(),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid bank account ID"),
   }),
 });
 

@@ -13,14 +13,39 @@ import {
 import { User } from "../../users/entities/User";
 import { Shipment } from "../../shipments/entities/Shipment";
 import { Payment } from "./Payment";
+import { BankAccount } from "./BankAccount";
 
 export enum InvoiceStatus {
   DRAFT = "draft",
+  PENDING_VERIFICATION = "pending_verification",
+  PENDING_APPROVAL = "pending_approval",
+  APPROVED = "approved",
   SENT = "sent",
   PAID = "paid",
   OVERDUE = "overdue",
   CANCELLED = "cancelled",
 }
+
+export type InvoiceItem = {
+  sn: number;
+  description: string;
+  quantity: number;
+  price: number;
+  total: number;
+};
+
+export type BankDetails = {
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  bankAddress?: string;
+  sortCode?: string;
+  swiftCode?: string;
+  intermediaryBank?: string;
+  intermediarySwift?: string;
+  tin?: string;
+  additionalInfo?: string;
+};
 
 @Entity("invoices")
 export class Invoice {
@@ -39,19 +64,62 @@ export class Invoice {
   @JoinColumn({ name: "shipment_id" })
   shipment?: Shipment;
 
+  // ─── Client ──────────────────────────────────────────────────────────────
   @Column({ name: "client_name", nullable: true })
   clientName?: string;
 
   @Column({ name: "client_email", nullable: true })
   clientEmail?: string;
 
+  // ─── Logistics Fields ─────────────────────────────────────────────────────
+  @Column({ name: "file_number", nullable: true })
+  fileNumber?: string;
+
+  @Column({ name: "your_ref", nullable: true })
+  yourRef?: string;
+
+  @Column({ name: "awb_bl_number", nullable: true })
+  awbBlNumber?: string;
+
+  @Column({ name: "number_of_packages", type: "int", nullable: true })
+  numberOfPackages?: number;
+
+  @Column({
+    name: "gross_weight",
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  grossWeight?: number;
+
+  @Column({
+    name: "chargeable_weight",
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  chargeableWeight?: number;
+
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  cubit?: number;
+
+  @Column({ name: "job_description", type: "text", nullable: true })
+  jobDescription?: string;
+
+  @Index()
+  @Column({ name: "invoice_format", default: "naira" })
+  invoiceFormat!: string;
+
+  // ─── Items & Financials ──────────────────────────────────────────────────
   @Column({ type: "jsonb", default: [] })
-  items!: Array<{
-    description: string;
-    quantity: number;
-    unit_price: number;
-    total: number;
-  }>;
+  items!: InvoiceItem[];
 
   @Column({
     type: "decimal",
@@ -129,6 +197,56 @@ export class Invoice {
   @Column({ type: "text", nullable: true })
   notes?: string;
 
+  // ─── Bank Details ────────────────────────────────────────────────────────
+  @Index()
+  @Column({ name: "bank_account_id", nullable: true })
+  bankAccountId?: string;
+
+  @ManyToOne(() => BankAccount, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "bank_account_id" })
+  bankAccount?: BankAccount;
+
+  @Column({ name: "bank_details", type: "jsonb", nullable: true, default: {} })
+  bankDetails?: BankDetails;
+
+  // ─── Approval / Signature ────────────────────────────────────────────────
+  @Index()
+  @Column({ name: "prepared_by_id", nullable: true })
+  preparedById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "prepared_by_id" })
+  preparedBy?: User;
+
+  @Column({ name: "prepared_at", type: "timestamp", nullable: true })
+  preparedAt?: Date;
+
+  @Index()
+  @Column({ name: "verified_by_id", nullable: true })
+  verifiedById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "verified_by_id" })
+  verifiedBy?: User;
+
+  @Column({ name: "verified_at", type: "timestamp", nullable: true })
+  verifiedAt?: Date;
+
+  @Index()
+  @Column({ name: "approved_by_id", nullable: true })
+  approvedById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "approved_by_id" })
+  approvedBy?: User;
+
+  @Column({ name: "approved_at", type: "timestamp", nullable: true })
+  approvedAt?: Date;
+
+  @Column({ name: "issued_at", type: "timestamp", nullable: true })
+  issuedAt?: Date;
+
+  // ─── Creator & Lifecycle ─────────────────────────────────────────────────
   @Column({ name: "created_by" })
   createdBy!: string;
 

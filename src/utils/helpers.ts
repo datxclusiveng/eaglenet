@@ -61,6 +61,22 @@ export function sanitizeUser(user: any): any {
 export function sanitizeUsers(users: any[]): any[] {
   return users.map(sanitizeUser);
 }
+
+/**
+ * Strip only auth credentials from a user object (password, refresh tokens).
+ * Leaves everything else including outstandingBalance, lastLogin, etc.
+ * Used when SUPERADMIN views workflow participants (preparedBy, verifiedBy, approvedBy).
+ */
+export function stripCredentials(user: any): any {
+  if (!user) return null;
+
+  const cleaned = { ...user };
+  delete cleaned.password;
+  delete cleaned.refreshToken;
+  delete cleaned.refreshTokenExpiresAt;
+
+  return cleaned;
+}
 /**
  * Pick specific fields from an object.
  * Used for the ?fields=id,name feature.

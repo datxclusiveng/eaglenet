@@ -17,7 +17,17 @@ const permissions = [
   { resource: "invoice", action: "create", scope: PermissionScope.ALL },
   { resource: "invoice", action: "read", scope: PermissionScope.ALL },
   { resource: "invoice", action: "update", scope: PermissionScope.ALL },
+  { resource: "invoice", action: "delete", scope: PermissionScope.ALL },
+  { resource: "invoice", action: "verify", scope: PermissionScope.ALL },
+  { resource: "invoice", action: "approve", scope: PermissionScope.ALL },
   { resource: "invoice", action: "reconcile", scope: PermissionScope.ALL },
+  { resource: "invoice", action: "submit", scope: PermissionScope.ALL },
+
+  // Bank Account
+  { resource: "bank-account", action: "create", scope: PermissionScope.ALL },
+  { resource: "bank-account", action: "read", scope: PermissionScope.ALL },
+  { resource: "bank-account", action: "update", scope: PermissionScope.ALL },
+  { resource: "bank-account", action: "delete", scope: PermissionScope.ALL },
   
   // Payment
   { resource: "payment", action: "create", scope: PermissionScope.ALL },

@@ -14,6 +14,7 @@ import winston from "winston";
 import multer from "multer";
 
 import { startKeepAliveJob } from "./jobs/keepAlive";
+import { startOverdueInvoiceJob } from "./jobs/overdue-invoices";
 
 // ── Modules ───────────────────────────────────────────────────────────────────
 import authRoutes from "./modules/auth/routes/auth.routes";
@@ -36,6 +37,7 @@ import customerRoutes from "./modules/customers/routes/customer.routes";
 import reportRoutes from "./modules/reports/routes/report.routes";
 import channelRoutes from "./modules/messages/routes/channel.routes";
 import mailRoutes from "./modules/notifications/routes/mail.routes";
+import bankAccountRoutes from "./modules/financial/routes/bank-account.routes";
 
 // Load environment variables
 dotenv.config();
@@ -49,6 +51,7 @@ if (
   process.env.ENABLE_CRON === "true"
 ) {
   startKeepAliveJob();
+  startOverdueInvoiceJob();
 }
 
 import { responseStandardizer } from "./middleware/response-standardizer";
@@ -175,6 +178,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/channels", channelRoutes);
 app.use("/api/mail", mailRoutes);
+app.use("/api/bank-accounts", bankAccountRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
