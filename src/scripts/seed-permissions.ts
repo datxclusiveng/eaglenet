@@ -1,109 +1,47 @@
 import { AppDataSource } from "../../database/data-source";
 import { Permission, PermissionScope } from "../modules/permissions/entities/Permission";
 
-const permissions = [
-  // Shipment
-  { resource: "shipment", action: "create", scope: PermissionScope.ALL },
-  { resource: "shipment", action: "read", scope: PermissionScope.ALL },
-  { resource: "shipment", action: "update", scope: PermissionScope.ALL },
-  { resource: "shipment", action: "delete", scope: PermissionScope.ALL },
-  { resource: "shipment", action: "approve", scope: PermissionScope.ALL },
-  
-  // Customs
-  { resource: "customs", action: "read", scope: PermissionScope.ALL },
-  { resource: "customs", action: "update", scope: PermissionScope.ALL },
-  
-  // Invoice
-  { resource: "invoice", action: "create", scope: PermissionScope.ALL },
-  { resource: "invoice", action: "read", scope: PermissionScope.ALL },
-  { resource: "invoice", action: "update", scope: PermissionScope.ALL },
-  { resource: "invoice", action: "delete", scope: PermissionScope.ALL },
-  { resource: "invoice", action: "verify", scope: PermissionScope.ALL },
-  { resource: "invoice", action: "approve", scope: PermissionScope.ALL },
-  { resource: "invoice", action: "reconcile", scope: PermissionScope.ALL },
-  { resource: "invoice", action: "submit", scope: PermissionScope.ALL },
+// Every resource:action pair for both DEPARTMENT and ALL scopes
+const resources = {
+  shipment: ["create", "read", "update", "delete", "approve"],
+  customs: ["read", "update"],
+  invoice: ["create", "read", "update", "delete", "verify", "approve", "reconcile", "submit"],
+  "bank-account": ["create", "read", "update", "delete"],
+  payment: ["create", "read", "process"],
+  document: ["create", "read", "update", "delete", "verify"],
+  workflow: ["create", "read", "update", "attach"],
+  audit: ["read"],
+  department: ["create", "read", "update", "delete"],
+  user: ["create", "read", "update", "deactivate", "upgrade"],
+  role: ["create", "read", "update"],
+  permission: ["create", "read"],
+  customer: ["create", "read"],
+  message: ["create", "read", "update", "delete"],
+  channel: ["create", "read", "update", "delete"],
+  mail: ["read", "send"],
+  search: ["read"],
+};
 
-  // Bank Account
-  { resource: "bank-account", action: "create", scope: PermissionScope.ALL },
-  { resource: "bank-account", action: "read", scope: PermissionScope.ALL },
-  { resource: "bank-account", action: "update", scope: PermissionScope.ALL },
-  { resource: "bank-account", action: "delete", scope: PermissionScope.ALL },
-  
-  // Payment
-  { resource: "payment", action: "create", scope: PermissionScope.ALL },
-  { resource: "payment", action: "read", scope: PermissionScope.ALL },
-  { resource: "payment", action: "process", scope: PermissionScope.ALL },
-  
-  // Document
-  { resource: "document", action: "create", scope: PermissionScope.ALL },
-  { resource: "document", action: "read", scope: PermissionScope.ALL },
-  { resource: "document", action: "update", scope: PermissionScope.ALL },
-  { resource: "document", action: "delete", scope: PermissionScope.ALL },
-  { resource: "document", action: "verify", scope: PermissionScope.ALL },
-  
-  // Workflow
-  { resource: "workflow", action: "create", scope: PermissionScope.ALL },
-  { resource: "workflow", action: "read", scope: PermissionScope.ALL },
-  { resource: "workflow", action: "update", scope: PermissionScope.ALL },
-  { resource: "workflow", action: "attach", scope: PermissionScope.ALL },
-  
-  // Audit
-  { resource: "audit", action: "read", scope: PermissionScope.ALL },
-  
-  // Department
-  { resource: "department", action: "create", scope: PermissionScope.ALL },
-  { resource: "department", action: "read", scope: PermissionScope.ALL },
-  { resource: "department", action: "update", scope: PermissionScope.ALL },
-  { resource: "department", action: "delete", scope: PermissionScope.ALL },
-  
-  // User
-  { resource: "user", action: "create", scope: PermissionScope.ALL },
-  { resource: "user", action: "read", scope: PermissionScope.ALL },
-  { resource: "user", action: "update", scope: PermissionScope.ALL },
-  { resource: "user", action: "deactivate", scope: PermissionScope.ALL },
-  { resource: "user", action: "upgrade", scope: PermissionScope.ALL },
+const permissionEntries: Array<{ resource: string; action: string; scope: PermissionScope }> = [];
 
-  // Role & Permissions
-  { resource: "role", action: "create", scope: PermissionScope.ALL },
-  { resource: "role", action: "read", scope: PermissionScope.ALL },
-  { resource: "role", action: "update", scope: PermissionScope.ALL },
-  { resource: "permission", action: "create", scope: PermissionScope.ALL },
-  { resource: "permission", action: "read", scope: PermissionScope.ALL },
-
-  // Customer CRM
-  { resource: "customer", action: "create", scope: PermissionScope.ALL },
-  { resource: "customer", action: "read", scope: PermissionScope.ALL },
-
-  // Messaging
-  { resource: "message", action: "create", scope: PermissionScope.ALL },
-  { resource: "message", action: "read", scope: PermissionScope.ALL },
-  { resource: "message", action: "update", scope: PermissionScope.ALL },
-  { resource: "message", action: "delete", scope: PermissionScope.ALL },
-
-  // Channels
-  { resource: "channel", action: "create", scope: PermissionScope.ALL },
-  { resource: "channel", action: "read", scope: PermissionScope.ALL },
-  { resource: "channel", action: "update", scope: PermissionScope.ALL },
-  { resource: "channel", action: "delete", scope: PermissionScope.ALL },
-
-  // Mail
-  { resource: "mail", action: "read", scope: PermissionScope.ALL },
-  { resource: "mail", action: "send", scope: PermissionScope.ALL },
-  { resource: "mail", action: "read", scope: PermissionScope.DEPARTMENT },
-  { resource: "mail", action: "send", scope: PermissionScope.DEPARTMENT },
-];
+for (const [resource, actions] of Object.entries(resources)) {
+  for (const action of actions) {
+    permissionEntries.push({ resource, action, scope: PermissionScope.DEPARTMENT });
+    permissionEntries.push({ resource, action, scope: PermissionScope.ALL });
+  }
+}
 
 export async function seedPermissions() {
   try {
     console.log("Checking system permissions...");
     const repo = AppDataSource.getRepository(Permission);
 
-    for (const p of permissions) {
+    for (const p of permissionEntries) {
       const exists = await repo.findOneBy({ resource: p.resource, action: p.action, scope: p.scope });
       if (!exists) {
         const perm = repo.create(p);
         await repo.save(perm);
-        console.log(`[SEED] Created missing permission: ${p.resource}:${p.action}`);
+        console.log(`[SEED] Created missing permission: ${p.resource}:${p.action} (${p.scope})`);
       }
     }
 

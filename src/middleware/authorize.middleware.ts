@@ -53,7 +53,13 @@ export function authorize(resource: string, action: string) {
         });
       }
 
-      // 3. Find matching permission
+      // 3. Find matching permission (keep the highest scope: ALL > DEPARTMENT > OWN)
+      const scopeRank: Record<PermissionScope, number> = {
+        [PermissionScope.ALL]: 3,
+        [PermissionScope.DEPARTMENT]: 2,
+        [PermissionScope.OWN]: 1,
+      };
+
       let hasAccess = false;
       let targetScope: PermissionScope | null = null;
       let matchedDepartmentId: string | null = null;
@@ -76,7 +82,7 @@ export function authorize(resource: string, action: string) {
               }
 
               const reqVal = req.body?.[key] || req.params?.[key] || req.query?.[key];
-              if (reqVal !== undefined && String(reqVal) !== String(userVal)) {
+              if (reqVal === undefined || String(reqVal) !== String(userVal)) {
                 conditionsMet = false;
                 break;
               }
@@ -85,8 +91,11 @@ export function authorize(resource: string, action: string) {
 
           if (conditionsMet) {
             hasAccess = true;
-            targetScope = found.scope;
-            matchedDepartmentId = udr.departmentId;
+            // Only upgrade scope/department when the new scope outranks the current one
+            if (targetScope === null || scopeRank[found.scope] > scopeRank[targetScope]) {
+              targetScope = found.scope;
+              matchedDepartmentId = udr.departmentId;
+            }
 
             if (targetScope === PermissionScope.ALL) break;
           }
