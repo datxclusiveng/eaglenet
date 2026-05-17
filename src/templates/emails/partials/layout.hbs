@@ -1,55 +1,171 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>{{subject}}</title>
-    <style>
-      /* Simple responsive, email-safe styles */
-      body { margin:0; padding:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#f5f7fa; color:#333; }
-      .preheader { display:none !important; visibility:hidden; opacity:0; color:transparent; height:0; width:0; }
-      .container { max-width:680px; margin:0 auto; background:#ffffff; border-radius:6px; overflow:hidden; box-shadow:0 6px 18px rgba(16,24,40,0.08); }
-      .header { padding:20px 28px; background:#f97316; color:#fff; display:flex; align-items:center; gap:12px }
-      .logo { height:36px; width:auto; }
-      .content { padding:28px; font-size:16px; line-height:1.5; color:#111827; }
-      .title { font-size:20px; font-weight:600; margin-bottom:8px; }
-      .body { margin-bottom:20px; }
-      .cta { display:inline-block; text-decoration:none; background:#f97316; color:#fff; padding:10px 16px; border-radius:6px; font-weight:600 }
-      .muted { color:#6b7280; font-size:13px }
-      .footer { padding:18px 28px; font-size:13px; color:#6b7280; background:#f9fafb; }
-      @media (max-width:480px){ .container{ margin:12px } .header{ padding:16px } .content{ padding:18px } }
-    </style>
-  </head>
-  <body>
-    <div class="preheader">{{preheader}}</div>
-    <div class="container">
-      <div class="header">
-        {{#if logoUrl}}
-          <img src="{{logoUrl}}" alt="{{brandName}}" class="logo" />
-        {{else}}
-          <strong style="color:#fff">{{brandName}}</strong>
-        {{/if}}
-      </div>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>{{brandName}}{{#if subject}} — {{subject}}{{/if}}</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    .preheader { display: none !important; visibility: hidden; opacity: 0; color: transparent; height: 0; width: 0; mso-hide: all; font-size: 1px; line-height: 1px; max-height: 0; overflow: hidden; }
+    .wrapper { width: 100%; table-layout: fixed; background-color: #f3f4f6; padding: 0; }
+    .main { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }
+    .header { padding: 32px 40px 24px; text-align: center; }
+    .header-table { width: 100%; }
+    .logo-img { max-width: 180px; height: auto; border: 0; outline: none; }
+    .divider { height: 1px; background-color: #e5e7eb; margin: 0 40px; }
+    .content { padding: 32px 40px 40px; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #111827; line-height: 1.3; margin: 0 0 20px 0; }
+    .body-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.625; color: #374151; }
+    .body-text p { margin-bottom: 16px; }
+    .body-text a { color: #3b2073; text-decoration: underline; font-weight: 500; }
+    .info-card { background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px 24px; margin: 24px 0; }
+    .info-row { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #374151; padding: 6px 0; }
+    .info-row strong { color: #1f2937; font-weight: 600; }
+    .status-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; letter-spacing: 0.3px; }
+    .status-pending { background-color: #fef3c7; color: #92400e; }
+    .status-transit { background-color: #dbeafe; color: #1e40af; }
+    .status-delivered { background-color: #d1fae5; color: #065f46; }
+    .status-cancelled { background-color: #fee2e2; color: #991b1b; }
+    .status-default { background-color: #e5e7eb; color: #374151; }
+    .code-box { background-color: #f5f3ff; border: 2px dashed #3b2073; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center; }
+    .code-text { font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Monaco', monospace; font-size: 36px; font-weight: 800; color: #3b2073; letter-spacing: 8px; -webkit-text-size-adjust: 100%; }
+    .cta-container { text-align: center; margin: 32px 0 24px; }
+    .cta { display: inline-block; background-color: #3b2073; color: #ffffff !important; text-decoration: none !important; padding: 14px 36px; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 600; font-size: 16px; text-align: center; }
+    .cta-secondary { display: inline-block; background-color: #ffffff; color: #3b2073 !important; text-decoration: none !important; padding: 13px 35px; border: 2px solid #3b2073; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-weight: 600; font-size: 16px; text-align: center; }
+    .disclaimer { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 32px; }
+    .footer { background-color: #f9fafb; padding: 28px 40px; text-align: center; border-top: 1px solid #e5e7eb; }
+    .footer-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #6b7280; line-height: 1.6; margin: 0 0 8px 0; }
+    .footer-link { color: #3b2073; text-decoration: none; font-weight: 500; }
+    .social-links { margin: 12px 0 0; }
+    .social-links a { display: inline-block; margin: 0 8px; color: #6b7280; text-decoration: none; font-size: 13px; }
 
-      <div class="content">
-        {{#if title}}
-          <div class="title">{{title}}</div>
-        {{/if}}
+    @media screen and (max-width: 600px) {
+      .main { width: 100% !important; border-radius: 0; }
+      .header { padding: 24px 20px 20px; }
+      .divider { margin: 0 20px; }
+      .content { padding: 24px 20px 32px; }
+      .footer { padding: 24px 20px; }
+      .title { font-size: 20px; }
+      .code-text { font-size: 28px; letter-spacing: 4px; }
+    }
 
-        <div class="body">{{{body}}}</div>
+    @media (prefers-color-scheme: dark) {
+      .main { background-color: #1f2937 !important; }
+      .header { background-color: #1f2937 !important; }
+      .title { color: #f9fafb !important; }
+      .body-text { color: #d1d5db !important; }
+      .body-text a { color: #a78bfa !important; }
+      .info-card { background-color: #111827 !important; border-color: #374151 !important; }
+      .info-row { color: #d1d5db !important; }
+      .info-row strong { color: #f3f4f6 !important; }
+      .code-box { background-color: #1e1b4b !important; border-color: #7c3aed !important; }
+      .code-text { color: #c4b5fd !important; }
+      .disclaimer { color: #6b7280 !important; border-color: #374151 !important; }
+      .footer { background-color: #111827 !important; border-color: #374151 !important; }
+      .footer-text { color: #9ca3af !important; }
+      .divider { background-color: #374151 !important; }
+    }
 
-        {{#if cta_url}}
-          <p><a href="{{cta_url}}" class="cta">{{cta_text}}</a></p>
-        {{/if}}
+    [data-ogsc] .main,
+    [data-ogsc] .header { background-color: #1f2937 !important; }
+    [data-ogsc] .title { color: #f9fafb !important; }
+    [data-ogsc] .body-text { color: #d1d5db !important; }
+    [data-ogsc] .footer { background-color: #111827 !important; }
+  </style>
+</head>
+<body>
+  <!-- Preheader: hidden preview text shown in inbox -->
+  <div class="preheader">{{#if preheader}}{{preheader}}{{else}}{{#if title}}{{title}}{{else}}EagleNet Logistics{{/if}}{{/if}}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
 
-        <p class="muted">If you did not expect this email, you can disregard it or contact <a href="mailto:support@{{brandUrl}}">support</a>.</p>
-      </div>
+  <table class="wrapper" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+    <tr>
+      <td align="center" style="padding: 24px 16px 40px;">
+        <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"><tr><td><![endif]-->
+        <table class="main" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;">
 
-      <div class="footer">
-        <div>{{brandName}} • <span>{{brandUrl}}</span></div>
-        <div style="margin-top:6px">{{unsubscribe_message}}</div>
-        <div class="muted" style="margin-top:8px">© {{year}} {{brandName}}. All rights reserved.</div>
-      </div>
-    </div>
-  </body>
+          <!-- Header -->
+          <tr>
+            <td class="header">
+              {{#if logoUrl}}
+                <img src="{{logoUrl}}" alt="{{brandName}}" class="logo-img" width="180" style="max-width:180px;height:auto;border:0;outline:none;display:block;margin:0 auto;" />
+              {{else}}
+                <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:24px;font-weight:800;color:#3b2073;letter-spacing:-0.5px;">{{brandName}}</span>
+              {{/if}}
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding: 0 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr><td class="divider" style="height:1px;background-color:#e5e7eb;font-size:0;line-height:0;">&nbsp;</td></tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td class="content">
+              {{#if title}}
+                <h1 class="title">{{title}}</h1>
+              {{/if}}
+
+              <div class="body-text">
+                {{{body}}}
+                {{> @partial-block}}
+              </div>
+
+              {{#if cta_url}}
+                <div class="cta-container">
+                  <a href="{{cta_url}}" class="cta" target="_blank" rel="noopener noreferrer">{{#if cta_text}}{{cta_text}}{{else}}Learn More{{/if}}</a>
+                </div>
+              {{/if}}
+
+              {{#if cta_secondary_url}}
+                <div class="cta-container" style="margin-top: -16px;">
+                  <a href="{{cta_secondary_url}}" class="cta-secondary" target="_blank" rel="noopener noreferrer">{{#if cta_secondary_text}}{{cta_secondary_text}}{{else}}View Details{{/if}}</a>
+                </div>
+              {{/if}}
+
+              <p class="disclaimer">
+                {{#if disclaimer}}
+                  {{{disclaimer}}}
+                {{else}}
+                  If you did not expect this email, you can safely ignore it or contact our <a href="mailto:support@eaglenetlogistics.com" style="color:#3b2073;text-decoration:underline;">support team</a>.
+                {{/if}}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td class="footer">
+              <p class="footer-text">
+                <strong style="color:#1f2937;">{{brandName}}</strong>
+              </p>
+              {{#if brandUrl}}
+                <p class="footer-text">
+                  <a href="{{brandUrl}}" class="footer-link" target="_blank" rel="noopener noreferrer">{{brandUrl}}</a>
+                </p>
+              {{/if}}
+              {{#if unsubscribe_url}}
+                <p class="footer-text" style="margin-top:12px;">
+                  <a href="{{unsubscribe_url}}" class="footer-link" target="_blank" rel="noopener noreferrer">Unsubscribe from these emails</a>
+                </p>
+              {{/if}}
+              <p class="footer-text" style="margin-top: 16px; font-size: 12px; color: #9ca3af;">
+                &copy; {{year}} {{brandName}}. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+      </td>
+    </tr>
+  </table>
+</body>
 </html>

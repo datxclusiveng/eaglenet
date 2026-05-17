@@ -1,2 +1,30 @@
-{{!-- Notification email using professional layout partial --}}
-{{> layout title=title subject=subject preheader=preheader body=body cta_text=cta_text cta_url=cta_url unsubscribe_message=unsubscribe_message year=year brandName=brandName brandUrl=brandUrl logoUrl=logoUrl }}
+{{!-- General Notification / Shipment Update Email --}}
+{{#> layout
+  title=title
+  subject=subject
+  preheader=preheader
+  cta_text=cta_text
+  cta_url=cta_url
+  disclaimer=disclaimer
+  unsubscribe_message=unsubscribe_message
+  year=year
+  brandName=brandName
+  brandUrl=brandUrl
+  logoUrl=logoUrl
+}}
+  {{#if userName}}
+    <p>Hello <strong>{{userName}}</strong>,</p>
+  {{/if}}
+
+  {{#if mainContent}}
+    <p>{{{mainContent}}}</p>
+  {{/if}}
+
+  {{#if (or trackingId shipmentId origin destination carrier eta status)}}
+    {{{shipmentDetails this}}}
+  {{/if}}
+
+  {{#if additionalContent}}
+    {{{additionalContent}}}
+  {{/if}}
+{{/layout}}

@@ -19,6 +19,7 @@ const getEnv = (key: string, fallback: string = ""): string => {
 const PROVIDER: MailProvider = getEnv("MAIL_PROVIDER", "resend") as MailProvider;
 const ENABLED = getEnv("MAILING_ENABLED", "1") !== "0";
 const BRAND = "EagleNet Logistics";
+const APP_URL = getEnv("APP_URL", "http://localhost:3000"); // Base URL for assets
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const MAIL_FROM = getEnv("MAIL_FROM", "onboarding@resend.dev");
@@ -74,6 +75,8 @@ let partialsRegistered = false;
 
 function registerPartials() {
   if (partialsRegistered) return;
+  // Fallback so {{> @partial-block}} is a no-op when layout called via {{> layout}} (non-block)
+  Handlebars.registerPartial("@partial-block", "");
   const partialsDir = path.join(process.cwd(), "src", "templates", "emails", "partials");
   if (!fs.existsSync(partialsDir)) {
     console.warn("[EmailService] Partials directory not found:", partialsDir);
@@ -90,12 +93,65 @@ function registerPartials() {
   partialsRegistered = true;
 }
 
+// ─── Handlebars Helpers ────────────────────────────────────────────────────────
+
+let helpersRegistered = false;
+
+function registerHelpers() {
+  if (helpersRegistered) return;
+
+  Handlebars.registerHelper("eq", function (a, b) {
+    return a === b;
+  });
+
+  Handlebars.registerHelper("or", function (...args: any[]) {
+    args.pop(); // pop the Handlebars options object off the end
+    for (const arg of args) {
+      if (arg) return true;
+    }
+    return false;
+  });
+
+  Handlebars.registerHelper("uppercase", function (str) {
+    return typeof str === "string" ? str.toUpperCase() : str;
+  });
+
+  Handlebars.registerHelper("statusClass", function (status: string) {
+    if (!status) return "status-default";
+    const s = status.toLowerCase().replace(/[_\s]/g, "");
+    if (s === "pending" || s === "onhold" || s === "hold") return "status-pending";
+    if (s === "intransit" || s === "transit" || s === "processing" || s === "customs" || s === "invoiced") return "status-transit";
+    if (s === "delivered" || s === "completed") return "status-delivered";
+    if (s === "cancelled" || s === "returned" || s === "failed") return "status-cancelled";
+    return "status-default";
+  });
+
+  Handlebars.registerHelper("shipmentDetails", function (data: any) {
+    if (!data || (!data.trackingId && !data.shipmentId)) return "";
+    const statusClassFn = Handlebars.helpers.statusClass as (s: string) => string;
+    const status = data.status || "N/A";
+    const badgeClass = statusClassFn(status);
+    return new Handlebars.SafeString(
+      `<div class="info-card"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">` +
+      (data.trackingId || data.shipmentId ? `<tr><td class="info-row"><strong>Tracking ID:</strong> ${Handlebars.escapeExpression(data.trackingId || data.shipmentId)}</td></tr>` : "") +
+      (data.origin ? `<tr><td class="info-row"><strong>Origin:</strong> ${Handlebars.escapeExpression(data.origin)}</td></tr>` : "") +
+      (data.destination ? `<tr><td class="info-row"><strong>Destination:</strong> ${Handlebars.escapeExpression(data.destination)}</td></tr>` : "") +
+      (data.carrier ? `<tr><td class="info-row"><strong>Carrier:</strong> ${Handlebars.escapeExpression(data.carrier)}</td></tr>` : "") +
+      (data.eta ? `<tr><td class="info-row"><strong>ETA:</strong> ${Handlebars.escapeExpression(data.eta)}</td></tr>` : "") +
+      `<tr><td class="info-row" style="padding-top:12px;"><strong>Status:</strong> <span class="status-badge ${badgeClass}">${Handlebars.escapeExpression(status)}</span></td></tr>` +
+      `</table></div>`
+    );
+  });
+
+  helpersRegistered = true;
+}
+
 /**
  * Loads and compiles a Handlebars template.
  */
 function compileTemplate(templateName: string, data: any): string {
   try {
-    // Ensure all partials (e.g. layout) are registered before compiling
+    registerHelpers();
     registerPartials();
 
     const templatePath = path.join(process.cwd(), "src", "templates", "emails", `${templateName}.hbs`);
@@ -124,6 +180,8 @@ export async function send(payload: EmailPayload) {
       ...payload.templateData,
       brandName: BRAND,
       year: new Date().getFullYear(),
+      logoUrl: `${APP_URL}/images.jpg`,
+      brandUrl: getEnv("FRONTEND_URL", APP_URL),
     });
   }
 
@@ -170,14 +228,21 @@ export async function sendBookingConfirmationEmail(
   await send({
     to,
     subject: `Shipment Confirmation — ${data.trackingId}`,
-    templateUsed: "notification", // Fallback to safe template
+    templateUsed: "notification",
     shipmentId: data.shipmentId,
     templateData: {
       title: "Booking Confirmed",
+      preheader: `Your shipment ${data.trackingId} has been booked`,
       userName: data.fullName,
-      mainContent: `Your ${data.type.replace("_", " ")} shipment from ${data.origin} to ${data.destination} has been booked.`,
-      shipmentId: data.trackingId,
+      mainContent: `Your <strong>${data.type.replace(/_/g, " ")}</strong> shipment has been successfully booked and is now in our system.`,
+      trackingId: data.trackingId,
+      origin: data.origin,
+      destination: data.destination,
+      eta: data.eta,
+      carrier: data.carrier,
       status: "PENDING",
+      cta_url: `${APP_URL}/shipments/${data.shipmentId || ""}`,
+      cta_text: "Track Your Shipment",
     },
   });
 }
@@ -193,17 +258,23 @@ export async function sendStatusUpdateEmail(
     shipmentId?: string;
   },
 ) {
+  const displayStatus = data.status.replace(/_/g, " ").toUpperCase();
   await send({
     to,
-    subject: `Update: Shipment ${data.trackingId}`,
+    subject: `Shipment Update: ${displayStatus} — ${data.trackingId}`,
     templateUsed: "notification",
     shipmentId: data.shipmentId,
     templateData: {
       title: "Status Update",
+      preheader: `Your shipment ${data.trackingId} is now ${displayStatus}`,
       userName: data.fullName,
-      mainContent: `The status of your shipment ${data.trackingId} has been updated.`,
-      shipmentId: data.trackingId,
-      status: data.status.replace("_", " ").toUpperCase(),
+      mainContent: `The status of your shipment <strong>${data.trackingId}</strong> has been updated. See current details below.`,
+      trackingId: data.trackingId,
+      origin: data.origin,
+      destination: data.destination,
+      status: displayStatus,
+      cta_url: `${APP_URL}/shipments/${data.shipmentId || ""}`,
+      cta_text: "View Shipment Details",
     },
   });
 }
@@ -214,8 +285,10 @@ export async function sendWelcomeEmail(to: string, fullName: string) {
         subject: `Welcome to ${BRAND}`,
         templateUsed: "welcome",
         templateData: {
+            preheader: `${fullName}, welcome to EagleNet Logistics`,
             userName: fullName,
-            mainContent: "Your account has been created successfully. Welcome aboard!",
+            cta_url: APP_URL,
+            cta_text: "Go to Dashboard",
         }
     });
 }
@@ -226,7 +299,10 @@ export async function sendPasswordResetEmail(to: string, resetLink: string) {
         subject: "Password Reset Request",
         templateUsed: "password-reset",
         templateData: {
-            resetLink
+            preheader: "Reset your EagleNet account password",
+            resetLink,
+            cta_url: resetLink,
+            cta_text: "Reset Your Password",
         }
     });
 }
@@ -235,13 +311,11 @@ export async function sendPasswordResetCodeEmail(to: string, fullName: string, c
     await send({
         to,
         subject: `Password Reset Code: ${code}`,
-        templateUsed: "notification",
+        templateUsed: "password-reset",
         templateData: {
-            title: "Password Reset Request",
+            preheader: `Your password reset code: ${code}`,
             userName: fullName,
-            mainContent: `You have requested a password reset. Please use the following code to complete the process. This code expires in 15 minutes.`,
-            shipmentId: code, // Reusing the shipmentId slot for the bold code display in the template
-            status: "RESET CODE",
+            resetCode: code,
         }
     });
 }

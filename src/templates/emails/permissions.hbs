@@ -1,2 +1,51 @@
-{{!-- Permissions (Leave) email template --}}
-{{> layout title=title subject=subject preheader=preheader body=body cta_text=cta_text cta_url=cta_url unsubscribe_message=unsubscribe_message year=year brandName=brandName brandUrl=brandUrl logoUrl=logoUrl }}
+{{!-- Permissions / Leave Request Email --}}
+{{#> layout
+  title=title
+  subject=subject
+  preheader=preheader
+  cta_text=cta_text
+  cta_url=cta_url
+  disclaimer=disclaimer
+  unsubscribe_message=unsubscribe_message
+  year=year
+  brandName=brandName
+  brandUrl=brandUrl
+  logoUrl=logoUrl
+}}
+  {{#if userName}}
+    <p>Hello <strong>{{userName}}</strong>,</p>
+  {{/if}}
+
+  {{#if mainContent}}
+    <p>{{{mainContent}}}</p>
+  {{/if}}
+
+  {{#if (or requestType requesterName startDate endDate)}}
+    <div class="info-card">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        {{#if requestType}}
+          <tr><td class="info-row"><strong>Request Type:</strong> {{requestType}}</td></tr>
+        {{/if}}
+        {{#if requesterName}}
+          <tr><td class="info-row"><strong>Requested By:</strong> {{requesterName}}</td></tr>
+        {{/if}}
+        {{#if startDate}}
+          <tr><td class="info-row"><strong>Start Date:</strong> {{startDate}}</td></tr>
+        {{/if}}
+        {{#if endDate}}
+          <tr><td class="info-row"><strong>End Date:</strong> {{endDate}}</td></tr>
+        {{/if}}
+        {{#if status}}
+          <tr><td class="info-row" style="padding-top:8px;">
+            <strong>Status:</strong>
+            <span class="status-badge {{#if (eq status "approved")}}status-delivered{{else if (eq status "rejected")}}status-cancelled{{else}}status-pending{{/if}}">{{status}}</span>
+          </td></tr>
+        {{/if}}
+      </table>
+    </div>
+  {{/if}}
+
+  {{#if additionalContent}}
+    {{{additionalContent}}}
+  {{/if}}
+{{/layout}}

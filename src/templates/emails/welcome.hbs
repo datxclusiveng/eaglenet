@@ -1,2 +1,25 @@
 {{!-- Welcome / Onboarding Email --}}
-{{> layout title=title subject=subject preheader=preheader body=body cta_text=cta_text cta_url=cta_url unsubscribe_message=unsubscribe_message year=year brandName=brandName brandUrl=brandUrl logoUrl=logoUrl }}
+{{#> layout
+  title="Welcome to EagleNet"
+  subject=subject
+  preheader=preheader
+  cta_text=cta_text
+  cta_url=cta_url
+  unsubscribe_message=unsubscribe_message
+  year=year
+  brandName=brandName
+  brandUrl=brandUrl
+  logoUrl=logoUrl
+}}
+  {{#if userName}}
+    <p>Hello <strong>{{userName}}</strong>,</p>
+  {{else}}
+    <p>Hello,</p>
+  {{/if}}
+
+  <p>Welcome to <strong>{{brandName}}</strong>! Your account has been created successfully and you're all set to start using our logistics platform.</p>
+
+  <p>With EagleNet, you can track shipments in real time, manage bookings, receive status notifications, and access your full logistics dashboard — all in one place.</p>
+
+  <p>If you have any questions about getting started, our support team is here to help.</p>
+{{/layout}}

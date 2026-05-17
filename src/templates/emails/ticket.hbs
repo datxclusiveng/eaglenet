@@ -1,2 +1,46 @@
-{{!-- Ticket email template --}}
-{{> layout title=title subject=subject preheader=preheader body=body cta_text=cta_text cta_url=cta_url unsubscribe_message=unsubscribe_message year=year brandName=brandName brandUrl=brandUrl logoUrl=logoUrl }}
+{{!-- Support Ticket Email --}}
+{{#> layout
+  title="Support Ticket"
+  subject=subject
+  preheader=preheader
+  cta_text=cta_text
+  cta_url=cta_url
+  disclaimer=disclaimer
+  unsubscribe_message=unsubscribe_message
+  year=year
+  brandName=brandName
+  brandUrl=brandUrl
+  logoUrl=logoUrl
+}}
+  {{#if userName}}
+    <p>Hello <strong>{{userName}}</strong>,</p>
+  {{/if}}
+
+  {{#if mainContent}}
+    <p>{{{mainContent}}}</p>
+  {{/if}}
+
+  {{#if ticketId}}
+    <div class="info-card">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr><td class="info-row"><strong>Ticket ID:</strong> {{ticketId}}</td></tr>
+        {{#if ticketSubject}}
+          <tr><td class="info-row"><strong>Subject:</strong> {{ticketSubject}}</td></tr>
+        {{/if}}
+        {{#if ticketPriority}}
+          <tr><td class="info-row"><strong>Priority:</strong> {{ticketPriority}}</td></tr>
+        {{/if}}
+        {{#if status}}
+          <tr><td class="info-row" style="padding-top:8px;">
+            <strong>Status:</strong>
+            <span class="status-badge {{#if (eq status "open")}}status-transit{{else if (eq status "resolved")}}status-delivered{{else if (eq status "closed")}}status-default{{else}}status-pending{{/if}}">{{status}}</span>
+          </td></tr>
+        {{/if}}
+      </table>
+    </div>
+  {{/if}}
+
+  {{#if additionalContent}}
+    {{{additionalContent}}}
+  {{/if}}
+{{/layout}}
