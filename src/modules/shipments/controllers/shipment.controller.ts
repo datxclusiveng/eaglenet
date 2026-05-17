@@ -191,8 +191,8 @@ export async function createShipment(req: Request, res: Response) {
         type: shipment.type,
         origin: `${shipment.originCity || ""}, ${shipment.originCountry || ""}`.trim(),
         destination: `${shipment.destinationCity || ""}, ${shipment.destinationCountry || ""}`.trim(),
-        eta: shipment.eta || "TBC",
-        carrier: shipment.airlineOrVessel || "TBC",
+        eta: shipment.eta || "To Be Confirmed",
+        carrier: shipment.airlineOrVessel || "To Be Confirmed",
       }).catch(console.error);
     }
 
@@ -358,8 +358,8 @@ export async function updateShipmentStatus(req: Request, res: Response) {
         fullName: shipment.clientName || "Client",
         trackingId: shipment.trackingNumber,
         status: shipment.status,
-        origin: shipment.originCity || "TBC",
-        destination: shipment.destinationCity || "TBC",
+        origin: shipment.originCity || "To Be Confirmed",
+        destination: shipment.destinationCity || "To Be Confirmed",
         shipmentId: shipment.id,
       }).catch(console.error);
       emailSent = true;
@@ -807,7 +807,7 @@ export async function getDeliveryNote(req: Request, res: Response) {
       .map((l) => ({
         timestamp: l.createdAt,
         status: l.newStatus || l.action,
-        location: l.metadata?.location || "N/A",
+        location: l.metadata?.location || "Not Available",
         note: l.note,
       }));
 

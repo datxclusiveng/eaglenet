@@ -129,7 +129,7 @@ function registerHelpers() {
   Handlebars.registerHelper("shipmentDetails", function (data: any) {
     if (!data || (!data.trackingId && !data.shipmentId)) return "";
     const statusClassFn = Handlebars.helpers.statusClass as (s: string) => string;
-    const status = data.status || "N/A";
+    const status = data.status || "Not Available";
     const badgeClass = statusClassFn(status);
     return new Handlebars.SafeString(
       `<div class="info-card"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">` +
@@ -137,7 +137,7 @@ function registerHelpers() {
       (data.origin ? `<tr><td class="info-row"><strong>Origin:</strong> ${Handlebars.escapeExpression(data.origin)}</td></tr>` : "") +
       (data.destination ? `<tr><td class="info-row"><strong>Destination:</strong> ${Handlebars.escapeExpression(data.destination)}</td></tr>` : "") +
       (data.carrier ? `<tr><td class="info-row"><strong>Carrier:</strong> ${Handlebars.escapeExpression(data.carrier)}</td></tr>` : "") +
-      (data.eta ? `<tr><td class="info-row"><strong>ETA:</strong> ${Handlebars.escapeExpression(data.eta)}</td></tr>` : "") +
+      (data.eta ? `<tr><td class="info-row"><strong>Estimated Arrival:</strong> ${Handlebars.escapeExpression(data.eta)}</td></tr>` : "") +
       `<tr><td class="info-row" style="padding-top:12px;"><strong>Status:</strong> <span class="status-badge ${badgeClass}">${Handlebars.escapeExpression(status)}</span></td></tr>` +
       `</table></div>`
     );

@@ -59,7 +59,7 @@ export async function performGlobalSearch(options: SearchOptions): Promise<Searc
         id: s.id,
         type: "shipment",
         title: s.shipmentName || s.trackingNumber,
-        subtitle: `${s.trackingNumber} | ${s.originCity || "TBC"} → ${s.destinationCity || "TBC"}`,
+        subtitle: `${s.trackingNumber} | ${s.originCity || "To Be Confirmed"} → ${s.destinationCity || "To Be Confirmed"}`,
         url: `/shipments/${s.id}`,
         departmentId: s.departmentId
       });
@@ -91,7 +91,7 @@ export async function performGlobalSearch(options: SearchOptions): Promise<Searc
         id: d.id,
         type: "document",
         title: d.name,
-        subtitle: `Type: ${d.documentType} | Shipment Ref: ${d.shipmentId || "N/A"}`,
+        subtitle: `Type: ${d.documentType} | Shipment Reference: ${d.shipmentId || "Not Available"}`,
         url: `/documents/${d.id}`,
         departmentId: d.departmentId
       });

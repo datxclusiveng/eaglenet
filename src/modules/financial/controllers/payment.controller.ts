@@ -87,7 +87,7 @@ export async function paystackWebhook(req: Request, res: Response) {
         }
 
         // Push Notif
-        sendPushNotification(user.id, "Payment Successful 💳", `Payment Ref: ${ref} confirmed.`, NotificationType.STATUS_UPDATE, `/payments/${payment.id}`).catch(console.error);
+        sendPushNotification(user.id, "Payment Successful 💳", `Payment Reference: ${ref} confirmed.`, NotificationType.STATUS_UPDATE, `/payments/${payment.id}`).catch(console.error);
 
         // Auto-reconcile invoice if the payment was attached to one
         if (payment.invoiceId) {

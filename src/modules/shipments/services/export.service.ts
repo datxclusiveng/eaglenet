@@ -7,15 +7,15 @@ import { Shipment } from "../entities/Shipment";
 export function exportShipmentsToExcel(shipments: Shipment[]): Buffer {
   const data = shipments.map((s) => ({
     "Tracking Number": s.trackingNumber,
-    "Shipment Name": s.shipmentName || "N/A",
+    "Shipment Name": s.shipmentName || "Not Available",
     "Type": s.type,
     "Status": s.status,
-    "Client Name": s.clientName || "N/A",
-    "Client Email": s.clientEmail || "N/A",
+    "Client Name": s.clientName || "Not Available",
+    "Client Email": s.clientEmail || "Not Available",
     "Origin": `${s.originCity || ""}, ${s.originCountry || ""}`,
     "Destination": `${s.destinationCity || ""}, ${s.destinationCountry || ""}`,
     "Creation Date": s.createdAt,
-    "ETA": s.eta || "N/A",
+    "Estimated Arrival": s.eta || "Not Available",
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(data);
