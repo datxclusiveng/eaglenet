@@ -48,6 +48,7 @@ export async function createInvoice(data: {
   today.setHours(0, 0, 0, 0);
   const count = await invoiceRepo().count({
     where: { createdAt: MoreThanOrEqual(today) },
+    withDeleted: true,
   });
 
   const invoiceNumber = generateInvoiceNumber(count + 1);
