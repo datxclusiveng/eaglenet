@@ -32,7 +32,7 @@ const voucherUploads = uploadMiddleware.fields([
 router.post(
   "/",
   ...auth,
-  authorize("payment", "create"),
+  authorize("voucher", "create"),
   voucherUploads,
   validateFileContent,
   validate(createVoucherSchema),
@@ -46,7 +46,7 @@ router.post(
 router.get(
   "/",
   ...auth,
-  authorize("payment", "read"),
+  authorize("voucher", "read"),
   listVouchers
 );
 
@@ -58,7 +58,7 @@ router.get(
   "/:id",
   validate(uuidParamSchema),
   ...auth,
-  authorize("payment", "read"),
+  authorize("voucher", "read"),
   getVoucher
 );
 
@@ -69,7 +69,7 @@ router.get(
 router.patch(
   "/:id/status",
   ...auth,
-  authorize("payment", "update"),
+  authorize("voucher", "update"),
   voucherUploads,
   validateFileContent,
   validate(updateVoucherStatusSchema),
