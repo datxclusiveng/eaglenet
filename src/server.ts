@@ -38,6 +38,7 @@ import reportRoutes from "./modules/reports/routes/report.routes";
 import channelRoutes from "./modules/messages/routes/channel.routes";
 import mailRoutes from "./modules/notifications/routes/mail.routes";
 import bankAccountRoutes from "./modules/financial/routes/bank-account.routes";
+import voucherRoutes from "./modules/financial/routes/voucher.routes";
 
 // Load environment variables
 dotenv.config();
@@ -179,6 +180,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/channels", channelRoutes);
 app.use("/api/mail", mailRoutes);
 app.use("/api/bank-accounts", bankAccountRoutes);
+app.use("/api/vouchers", voucherRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {

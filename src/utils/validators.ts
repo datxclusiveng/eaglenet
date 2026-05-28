@@ -268,3 +268,54 @@ export const unassignStaffParamSchema = z.object({
     roleId: z.string().uuid("Invalid Role ID format."),
   }),
 });
+
+export const createVoucherSchema = z.object({
+  body: z.object({
+    voucherType: z.enum(["REQUEST_FOR_CASH", "PAYMENT_AUTHORITY", "CASH_PAYMENT_VOUCHER"]),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+    purpose: z.string().optional(),
+    amount: z.coerce.number().positive("Amount must be positive"),
+    totalAmount: z.coerce.number().nonnegative().optional(),
+    receiptUrl: z.string().optional(),
+    
+    // Request for Cash fields
+    staffId: z.string().uuid("Invalid Staff ID").optional(),
+    staffSignatureUrl: z.string().optional(),
+
+    // Payment Authority fields
+    bankTransferDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Bank transfer date must be YYYY-MM-DD").optional(),
+    beneficiaryName: z.string().optional(),
+
+    // Cash Payment Voucher fields
+    particulars: z.preprocess((val) => {
+      if (typeof val === "string") {
+        try { return JSON.parse(val); } catch { return val; }
+      }
+      return val;
+    }, z.array(z.object({
+      sn: z.number().int().positive(),
+      particulars: z.string().min(1),
+      amount: z.number().positive()
+    })).optional()),
+    amountInWords: z.string().optional(),
+    itemsDescription: z.string().optional(),
+    itemsCount: z.coerce.number().int().nonnegative().optional(),
+    receivedById: z.string().uuid().optional(),
+    receivedByName: z.string().optional(),
+    receivedBySignatureUrl: z.string().optional(),
+    issuedById: z.string().uuid().optional(),
+    issuedBySignatureUrl: z.string().optional()
+  })
+});
+
+export const updateVoucherStatusSchema = z.object({
+  body: z.object({
+    status: z.enum(["APPROVED", "REJECTED"]),
+    rejectionReason: z.string().optional(),
+    authorizedSignatureUrl: z.string().optional()
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid Voucher ID format.")
+  })
+});
+
