@@ -42,6 +42,12 @@ export const registerSchema = z.object({
   }),
 });
 
+export const uploadSignatureResponseSchema = z.object({
+  body: z.object({
+    signatureUrl: z.string().optional(),
+  }),
+});
+
 export const loginSchema = z.object({
   body: z.object({
     email: z.string().email("Invalid email format"),

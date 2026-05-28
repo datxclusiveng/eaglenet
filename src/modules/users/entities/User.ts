@@ -52,6 +52,9 @@ export class User {
   @Column({ name: "phone_number", nullable: true })
   phoneNumber?: string;
 
+  @Column({ name: "signature_url", type: "text", nullable: true })
+  signatureUrl?: string;
+
   @Column({
     name: "outstanding_balance",
     type: "decimal",

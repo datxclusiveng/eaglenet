@@ -14,10 +14,12 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
   getOnlineUsers,
+  uploadSignature,
 } from "../controllers/user.controller";
 import { auth, adminOnly, superAdminOnly } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { userIdParamSchema } from "../../../utils/validators";
+import { uploadMiddleware, validateFileContent } from "../../../middleware/upload.middleware";
 
 const router = Router();
 
@@ -28,6 +30,7 @@ const router = Router();
 router.get("/me/dashboard", ...auth, myDashboard);
 router.get("/me/notifications/preferences", ...auth, getNotificationPreferences);
 router.patch("/me/notifications/preferences", ...auth, updateNotificationPreferences);
+router.patch("/me/signature", ...auth, uploadMiddleware.single("signature"), validateFileContent, uploadSignature);
 
 /**
  * GET /api/users/online

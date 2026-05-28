@@ -19,6 +19,33 @@ All voucher endpoints are secure and require a bearer token. Follow these steps 
 
 ## 2. API Endpoints Reference
 
+### User Signature Profile Settings
+
+#### Set Pre-configured Profile Signature (`PATCH /api/users/me/signature`)
+Allows any staff member, supervisor, or manager to upload and pre-configure their digital signature once. The signature is safely linked to their profile in the database and is automatically used as a fallback fallback during creation and approvals across the board.
+
+* **URL**: `{{baseUrl}}/api/users/me/signature`
+* **Method**: `PATCH`
+* **Headers**: `Authorization: Bearer <token>`
+* **Body Type**: `form-data`
+
+| Key | Type | Value / Description | Required |
+| :--- | :--- | :--- | :--- |
+| `signature` | File | Choose an image file of your signature (.png, .jpg) | Yes |
+
+##### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "message": "Signature uploaded successfully.",
+  "data": {
+    "signatureUrl": "https://eaglenet-s3.s3.amazonaws.com/signatures/1779966123-user-sig.png"
+  }
+}
+```
+
+---
+
 ### A. Create Voucher (`POST /api/vouchers`)
 Used to submit a new voucher. Since these requests support uploading physical signatures and supporting documents/receipts, you **MUST** use `form-data` (Multipart Form) for the request body.
 

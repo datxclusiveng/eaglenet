@@ -39,6 +39,17 @@ export async function createVoucher(req: Request, res: Response) {
         "signatures"
       );
       staffSignatureUrl = uploaded.url;
+    } else if (body.staffId) {
+      // Fallback to staff's pre-configured signature if available
+      const staffUser = await AppDataSource.getRepository(User).findOne({ where: { id: body.staffId } });
+      if (staffUser?.signatureUrl) {
+        staffSignatureUrl = staffUser.signatureUrl;
+      }
+    } else if (body.voucherType === "REQUEST_FOR_CASH") {
+      // Fallback to creator's signature if they are the staff
+      if (creator.signatureUrl) {
+        staffSignatureUrl = creator.signatureUrl;
+      }
     }
 
     let receivedBySignatureUrl = body.receivedBySignatureUrl;
@@ -50,6 +61,11 @@ export async function createVoucher(req: Request, res: Response) {
         "signatures"
       );
       receivedBySignatureUrl = uploaded.url;
+    } else if (body.receivedById) {
+      const recUser = await AppDataSource.getRepository(User).findOne({ where: { id: body.receivedById } });
+      if (recUser?.signatureUrl) {
+        receivedBySignatureUrl = recUser.signatureUrl;
+      }
     }
 
     let issuedBySignatureUrl = body.issuedBySignatureUrl;
@@ -61,6 +77,16 @@ export async function createVoucher(req: Request, res: Response) {
         "signatures"
       );
       issuedBySignatureUrl = uploaded.url;
+    } else if (body.issuedById) {
+      const issUser = await AppDataSource.getRepository(User).findOne({ where: { id: body.issuedById } });
+      if (issUser?.signatureUrl) {
+        issuedBySignatureUrl = issUser.signatureUrl;
+      }
+    } else {
+      // Fallback to creator's signature as issuer
+      if (creator.signatureUrl) {
+        issuedBySignatureUrl = creator.signatureUrl;
+      }
     }
 
     // Since generateEglId expects "TRK" | "SHIP" | "PAY" | "REF", we cast VCH to bypass strict type check or map it.
@@ -226,6 +252,11 @@ export async function updateVoucherStatus(req: Request, res: Response) {
         "signatures"
       );
       finalAuthorizedSignatureUrl = uploaded.url;
+    } else {
+      // Fallback to preconfigured signature of the authorizing manager/admin
+      if (authorizer.signatureUrl) {
+        finalAuthorizedSignatureUrl = authorizer.signatureUrl;
+      }
     }
 
     voucher.status = status;

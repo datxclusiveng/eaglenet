@@ -607,3 +607,45 @@ export async function getOnlineUsers(_req: Request, res: Response) {
     return res.status(500).json({ status: "error", message: "Failed to fetch online users." });
   }
 }
+
+import { uploadFile } from "../../../utils/storage.service";
+
+/**
+ * PATCH /api/users/me/signature
+ * Upload or update authenticated user's digital signature
+ */
+export async function uploadSignature(req: Request, res: Response) {
+  try {
+    const user = (req as any).user as User;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ status: "error", message: "No signature file provided." });
+    }
+
+    const uploaded = await uploadFile(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      "signatures"
+    );
+
+    const repo = userRepo();
+    await repo.update(user.id, { signatureUrl: uploaded.url });
+
+    createAuditLog({
+      entityType: "User",
+      entityId: user.id,
+      action: AuditAction.UPDATE,
+      actionDetails: { field: "signatureUrl", url: uploaded.url },
+      performedBy: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return (res as any).success({ signatureUrl: uploaded.url }, "Signature uploaded successfully.");
+  } catch (err) {
+    console.error("[UserController.uploadSignature]", err);
+    return res.status(500).json({ status: "error", message: "Failed to upload signature." });
+  }
+}
