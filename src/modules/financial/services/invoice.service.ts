@@ -157,8 +157,16 @@ export async function updateInvoice(
 ): Promise<Invoice> {
   const invoice = await invoiceRepo().findOneOrFail({ where: { id } });
 
+  // If the invoice is not a draft, reset it back to DRAFT so it goes
+  // through the verification → approval workflow again.
   if (invoice.status !== InvoiceStatus.DRAFT) {
-    throw new Error("Only draft invoices can be edited.");
+    invoice.status = InvoiceStatus.DRAFT;
+    invoice.preparedById = undefined as any;
+    invoice.preparedAt = undefined as any;
+    invoice.verifiedById = undefined as any;
+    invoice.verifiedAt = undefined as any;
+    invoice.approvedById = undefined as any;
+    invoice.approvedAt = undefined as any;
   }
 
   // If items changed, rebuild with SN and recalculate totals
