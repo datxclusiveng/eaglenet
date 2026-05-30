@@ -28,6 +28,16 @@ export async function createLedgerEntryHandler(req: Request, res: Response) {
       createdById: user.id,
     });
 
+    createAuditLog({
+      entityType: "LedgerEntry",
+      entityId: entry.id,
+      action: AuditAction.CREATE,
+      actionDetails: { referenceNumber: entry.referenceNumber, amount: entry.amount, natureOfTransaction: entry.natureOfTransaction, entryType: entry.entryType },
+      performedBy: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
     return res.status(201).json({ status: "success", data: entry });
   } catch (err: any) {
     console.error("[LedgerController.create]", err);
@@ -90,6 +100,7 @@ export async function getLedgerEntryHandler(req: Request, res: Response) {
 
 export async function updateLedgerEntryHandler(req: Request, res: Response) {
   try {
+    const user = (req as any).user as User;
     const id = req.params.id as string;
     const body = req.body;
 
@@ -103,6 +114,17 @@ export async function updateLedgerEntryHandler(req: Request, res: Response) {
     if (body.items !== undefined) data.items = body.items;
 
     const entry = await updateLedgerEntry(id, data);
+
+    createAuditLog({
+      entityType: "LedgerEntry",
+      entityId: entry.id,
+      action: AuditAction.UPDATE,
+      actionDetails: { referenceNumber: entry.referenceNumber, changes: data },
+      performedBy: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
     return res.status(200).json({ status: "success", data: entry });
   } catch (err: any) {
     console.error("[LedgerController.update]", err);
@@ -112,8 +134,20 @@ export async function updateLedgerEntryHandler(req: Request, res: Response) {
 
 export async function deleteLedgerEntryHandler(req: Request, res: Response) {
   try {
+    const user = (req as any).user as User;
     const id = req.params.id as string;
     await softDeleteLedgerEntry(id);
+
+    createAuditLog({
+      entityType: "LedgerEntry",
+      entityId: id,
+      action: AuditAction.DELETE,
+      actionDetails: { event: "soft_deleted" },
+      performedBy: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
     return res.status(200).json({ status: "success", message: "Ledger entry deleted." });
   } catch (err: any) {
     console.error("[LedgerController.delete]", err);
