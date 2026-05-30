@@ -568,12 +568,303 @@ Soft-deletes an entry. Requires `cashbook:delete` permission.
 
 ---
 
-## 4. Quick Checklist for Postman Errors
+## 4. Ledger Module
+
+The **Ledger** module captures comprehensive financial ledger entries — each entry records a date, description, total amount, whether it's cash or bank (debit/credit), and optionally distributes the amount across 61 cost-center categories (FAAN, NAHCO, salaries, rent, fuel, etc.).
+
+All ledger endpoints require authentication. Create, read, update, and delete require the `ledger` permission. The `/my` endpoint is available to any authenticated user and returns only their own entries.
+
+### Item Categories Reference
+
+The `items` object accepts any subset of these keys (all optional, all numbers):
+
+`faan`, `nahco`, `sahcol`, `quarantineTreatmentStamping`, `airFreightSeaFreightCharges`, `allied`, `truckingExpenses`, `operationsExpensesLabourExpenses`, `passagesTravelsHotelFeedingAccommodation`, `maintenanceOfficeWarehouse`, `maintenanceOfOfficeTrucks`, `maintenanceOfOfficeCars`, `fuelForCars`, `dieselForTrucks`, `fuelForGeneratorServicing`, `engineOilLubricant`, `renewalRegistrationOfVehiclesPapers`, `itMaintenanceOnServerComputerAccessories`, `printingAndStationaries`, `salariesAndAllowancesBonus`, `telexTelephoneAllowanceAndPostagesTransferCharges`, `renewal`, `registrationAndSubscription`, `rent`, `localTransportGateFees`, `officeConsumables`, `rateGovernmentLevies`, `packingMaterials`, `advertisement`, `legalAndAuditFees`, `utilityExpenses`, `maintenanceOfficeEquipment`, `payeRemittance`, `vatRemittance`, `importExportClearanceAgencyFeeStoragesDemurrages`, `insuranceExpenses`, `additionToFixAsset`, `staffPensionRemittance`, `nsitf`, `citEducationTax`, `staffCostTraining`, `chargesSundry`, `staffLoan`, `businessProspectingExpenses`, `damagesBusinessLosses`, `interestOnLoan`, `loanRepayment`, `entertainmentExpenses`, `medicalExpenses`, `whtTax`, `disposalExpenses`, `officeSiteClearingExpensesDevelopment`, `securityExpenses`, `officeFenceArchDesignExpenses`, `healthSafetyExpenses`, `contraEntry`, `giftsDonations`, `sponsorshipFootDevelopment`, `loanGranted`, `penalty`, `internalTransfer`
+
+---
+
+### A. Create Ledger Entry (`POST /api/ledger`)
+
+* **URL**: `{{baseUrl}}/api/ledger`
+* **Method**: `POST`
+* **Headers**: `Authorization: Bearer <token>`
+* **Body Type**: `raw` (JSON)
+
+| Field | Type | Description | Required |
+| :--- | :--- | :--- | :--- |
+| `date` | String | `2026-05-30` (YYYY-MM-DD) | Yes |
+| `description` | String | Operational notes for this entry | No |
+| `amount` | Number | `500000` — total amount for this entry | Yes |
+| `cashReceivedFromBank` | Number | `200000` — cash withdrawn/received from bank | No |
+| `natureOfTransaction` | String | `cash` or `bank` | Yes |
+| `entryType` | String | `debit` or `credit` | Yes |
+| `items` | Object | Key-value pairs of category → amount as **strings** (see reference above) | No |
+
+#### Sample Request Body
+```json
+{
+  "date": "2026-05-30",
+  "description": "May operational expenses",
+  "amount": 500000,
+  "cashReceivedFromBank": 200000,
+  "natureOfTransaction": "bank",
+  "entryType": "debit",
+  "items": {
+    "faan": "50000",
+    "nahco": "30000",
+    "sahcol": "20000",
+    "salariesAndAllowancesBonus": "250000",
+    "dieselForTrucks": "80000",
+    "rent": "70000"
+  }
+}
+```
+
+#### Sample Response (`201 Created`)
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "d1e2f3a4-b5c6-7890-defg-hijk12345678",
+    "referenceNumber": "EGL-LDG-A1B2C3D4",
+    "date": "2026-05-30",
+    "description": "May operational expenses",
+    "amount": 500000,
+    "cashReceivedFromBank": 200000,
+    "natureOfTransaction": "bank",
+    "entryType": "debit",
+    "items": {
+      "faan": "50000",
+      "nahco": "30000",
+      "sahcol": "20000",
+      "salariesAndAllowancesBonus": "250000",
+      "dieselForTrucks": "80000",
+      "rent": "70000"
+    },
+    "createdById": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+    "isDeleted": false,
+    "createdAt": "2026-05-30T11:00:00.000Z",
+    "updatedAt": "2026-05-30T11:00:00.000Z"
+  }
+}
+```
+
+---
+
+### B. List My Ledger Entries (`GET /api/ledger/my`)
+Returns only the ledger entries created by the currently authenticated user. No special permission required.
+
+* **URL**: `{{baseUrl}}/api/ledger/my`
+* **Method**: `GET`
+* **Query Parameters**:
+  - `page` (optional): `1`
+  - `limit` (optional): `10`
+  - `natureOfTransaction` (optional): `cash` or `bank`
+  - `entryType` (optional): `debit` or `credit`
+  - `startDate` (optional): `2026-05-01`
+  - `endDate` (optional): `2026-05-31`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "d1e2f3a4-b5c6-7890-defg-hijk12345678",
+      "referenceNumber": "EGL-LDG-A1B2C3D4",
+      "date": "2026-05-30",
+      "description": "May operational expenses",
+      "amount": 500000,
+      "cashReceivedFromBank": 200000,
+      "natureOfTransaction": "bank",
+      "entryType": "debit",
+      "items": {
+        "faan": "50000",
+        "salariesAndAllowancesBonus": "250000"
+      },
+      "createdBy": {
+        "id": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+        "firstName": "Admin",
+        "lastName": "User",
+        "email": "admin@eaglenet.com"
+      }
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+### C. List All Ledger Entries (`GET /api/ledger`)
+Returns all ledger entries with pagination and filters. Requires `ledger:read` permission.
+
+* **URL**: `{{baseUrl}}/api/ledger`
+* **Method**: `GET`
+* **Query Parameters**:
+  - `page` (optional): `1`
+  - `limit` (optional): `10`
+  - `natureOfTransaction` (optional): `cash` or `bank`
+  - `entryType` (optional): `debit` or `credit`
+  - `startDate` (optional): `2026-05-01`
+  - `endDate` (optional): `2026-05-31`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "d1e2f3a4-b5c6-7890-defg-hijk12345678",
+      "referenceNumber": "EGL-LDG-A1B2C3D4",
+      "date": "2026-05-30",
+      "description": "May operational expenses",
+      "amount": 500000,
+      "cashReceivedFromBank": 200000,
+      "natureOfTransaction": "bank",
+      "entryType": "debit",
+      "items": {
+        "faan": "50000",
+        "nahco": "30000",
+        "sahcol": "20000",
+        "salariesAndAllowancesBonus": "250000",
+        "dieselForTrucks": "80000",
+        "rent": "70000"
+      },
+      "createdBy": {
+        "id": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+        "firstName": "Admin",
+        "lastName": "User",
+        "email": "admin@eaglenet.com"
+      }
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+### D. Get Single Ledger Entry (`GET /api/ledger/:id`)
+
+* **URL**: `{{baseUrl}}/api/ledger/:id`
+* **Method**: `GET`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "d1e2f3a4-b5c6-7890-defg-hijk12345678",
+    "referenceNumber": "EGL-LDG-A1B2C3D4",
+    "date": "2026-05-30",
+    "description": "May operational expenses",
+    "amount": 500000,
+    "cashReceivedFromBank": 200000,
+    "natureOfTransaction": "bank",
+    "entryType": "debit",
+    "items": {
+      "faan": "50000",
+      "nahco": "30000",
+      "sahcol": "20000",
+      "salariesAndAllowancesBonus": "250000",
+      "dieselForTrucks": "80000",
+      "rent": "70000"
+    },
+    "createdBy": {
+      "id": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@eaglenet.com"
+    }
+  }
+}
+```
+
+---
+
+### E. Update Ledger Entry (`PATCH /api/ledger/:id`)
+Requires `ledger:update` permission. All fields optional — only send what needs to change.
+
+* **URL**: `{{baseUrl}}/api/ledger/:id`
+* **Method**: `PATCH`
+* **Headers**: `Authorization: Bearer <token>`
+* **Body Type**: `raw` (JSON)
+
+| Field | Type | Description | Required |
+| :--- | :--- | :--- | :--- |
+| `date` | String | `2026-05-31` (YYYY-MM-DD) | No |
+| `description` | String | Updated description | No |
+| `amount` | Number | Updated total amount | No |
+| `cashReceivedFromBank` | Number | Updated cash from bank | No |
+| `natureOfTransaction` | String | `cash` or `bank` | No |
+| `entryType` | String | `debit` or `credit` | No |
+| `items` | Object | Updated category amounts as **strings** (replaces entire object) | No |
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "d1e2f3a4-b5c6-7890-defg-hijk12345678",
+    "referenceNumber": "EGL-LDG-A1B2C3D4",
+    "date": "2026-05-31",
+    "description": "May operational expenses - corrected",
+    "amount": 520000,
+    "items": {
+      "faan": "55000",
+      "nahco": "30000",
+      "salariesAndAllowancesBonus": "250000",
+      "dieselForTrucks": "80000",
+      "rent": "70000",
+      "officeConsumables": "35000"
+    }
+  }
+}
+```
+
+---
+
+### F. Delete Ledger Entry (`DELETE /api/ledger/:id`)
+Soft-deletes an entry. Requires `ledger:delete` permission.
+
+* **URL**: `{{baseUrl}}/api/ledger/:id`
+* **Method**: `DELETE`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "message": "Ledger entry deleted."
+}
+```
+
+---
+
+## 5. Quick Checklist for Postman Errors
 
 1. **Zod Validation Error (`400 Bad Request`)**:
    - Ensure the `date` is formatted precisely as `YYYY-MM-DD`.
    - For `particulars` in a Cash Payment Voucher, ensure your value is valid JSON, e.g. `[{"sn": 1, "particulars": "Item A", "amount": 100}]`.
    - For cashbook, make sure `natureOfTransaction` is either `cash` or `bank`.
    - For cashbook, make sure `entryType` is either `debit` or `credit`.
+   - For ledger, make sure `natureOfTransaction` is either `cash` or `bank`.
+   - For ledger, make sure `entryType` is either `debit` or `credit`.
+   - For ledger, the `items` object keys must match the documented category names exactly and all values must be strings (e.g. `"50000"`, not `50000`). Values over 500 characters are rejected.
+   - For ledger, HTML tags, event handlers (onclick, etc.), and `javascript:` URIs are stripped from item values automatically.
 2. **File Size/Type Issues**:
    - Limit file uploads (receipts, signatures) to image files (`.png`, `.jpg`, `.jpeg`) or document layouts (`.pdf`).
+

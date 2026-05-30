@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { User } from "../../users/entities/User";
 import { TransactionNature, EntryType } from "../entities/CashbookEntry";
 import { paginate, parsePagination, sanitizeUser } from "../../../utils/helpers";
+import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import {
   createCashbookEntry,
   listCashbookEntries,

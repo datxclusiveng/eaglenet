@@ -3,6 +3,7 @@ import { InvoiceStatus } from "../modules/financial/entities/Invoice";
 import { ShipmentStatus } from "../modules/shipments/entities/Shipment";
 import { BankAccountType } from "../modules/financial/entities/BankAccount";
 import { TransactionNature, EntryType } from "../modules/financial/entities/CashbookEntry";
+import { LedgerTransactionNature, LedgerEntryType } from "../modules/financial/entities/LedgerEntry";
 
 export const updateShipmentStatusSchema = z.object({
   body: z.object({
@@ -355,3 +356,106 @@ export const updateCashbookEntrySchema = z.object({
   }),
 });
 
+const sanitizeString = (val: string): string => {
+  return val
+    .replace(/<[^>]*>/g, "")           // strip HTML tags
+    .replace(/&[^;]+;/g, "")           // strip HTML entities
+    .replace(/javascript\s*:/gi, "")   // strip javascript: protocol
+    .replace(/\bon\w+\s*=/gi, "")      // strip inline event handlers (onerror, onclick, etc.)
+    .trim();
+};
+
+const itemValueSchema = z.string()
+  .max(500, "Item value must be under 500 characters")
+  .transform(sanitizeString);
+
+const ledgerItemsSchema = z.object({
+  faan: itemValueSchema.optional(),
+  nahco: itemValueSchema.optional(),
+  sahcol: itemValueSchema.optional(),
+  quarantineTreatmentStamping: itemValueSchema.optional(),
+  airFreightSeaFreightCharges: itemValueSchema.optional(),
+  allied: itemValueSchema.optional(),
+  truckingExpenses: itemValueSchema.optional(),
+  operationsExpensesLabourExpenses: itemValueSchema.optional(),
+  passagesTravelsHotelFeedingAccommodation: itemValueSchema.optional(),
+  maintenanceOfficeWarehouse: itemValueSchema.optional(),
+  maintenanceOfOfficeTrucks: itemValueSchema.optional(),
+  maintenanceOfOfficeCars: itemValueSchema.optional(),
+  fuelForCars: itemValueSchema.optional(),
+  dieselForTrucks: itemValueSchema.optional(),
+  fuelForGeneratorServicing: itemValueSchema.optional(),
+  engineOilLubricant: itemValueSchema.optional(),
+  renewalRegistrationOfVehiclesPapers: itemValueSchema.optional(),
+  itMaintenanceOnServerComputerAccessories: itemValueSchema.optional(),
+  printingAndStationaries: itemValueSchema.optional(),
+  salariesAndAllowancesBonus: itemValueSchema.optional(),
+  telexTelephoneAllowanceAndPostagesTransferCharges: itemValueSchema.optional(),
+  renewal: itemValueSchema.optional(),
+  registrationAndSubscription: itemValueSchema.optional(),
+  rent: itemValueSchema.optional(),
+  localTransportGateFees: itemValueSchema.optional(),
+  officeConsumables: itemValueSchema.optional(),
+  rateGovernmentLevies: itemValueSchema.optional(),
+  packingMaterials: itemValueSchema.optional(),
+  advertisement: itemValueSchema.optional(),
+  legalAndAuditFees: itemValueSchema.optional(),
+  utilityExpenses: itemValueSchema.optional(),
+  maintenanceOfficeEquipment: itemValueSchema.optional(),
+  payeRemittance: itemValueSchema.optional(),
+  vatRemittance: itemValueSchema.optional(),
+  importExportClearanceAgencyFeeStoragesDemurrages: itemValueSchema.optional(),
+  insuranceExpenses: itemValueSchema.optional(),
+  additionToFixAsset: itemValueSchema.optional(),
+  staffPensionRemittance: itemValueSchema.optional(),
+  nsitf: itemValueSchema.optional(),
+  citEducationTax: itemValueSchema.optional(),
+  staffCostTraining: itemValueSchema.optional(),
+  chargesSundry: itemValueSchema.optional(),
+  staffLoan: itemValueSchema.optional(),
+  businessProspectingExpenses: itemValueSchema.optional(),
+  damagesBusinessLosses: itemValueSchema.optional(),
+  interestOnLoan: itemValueSchema.optional(),
+  loanRepayment: itemValueSchema.optional(),
+  entertainmentExpenses: itemValueSchema.optional(),
+  medicalExpenses: itemValueSchema.optional(),
+  whtTax: itemValueSchema.optional(),
+  disposalExpenses: itemValueSchema.optional(),
+  officeSiteClearingExpensesDevelopment: itemValueSchema.optional(),
+  securityExpenses: itemValueSchema.optional(),
+  officeFenceArchDesignExpenses: itemValueSchema.optional(),
+  healthSafetyExpenses: itemValueSchema.optional(),
+  contraEntry: itemValueSchema.optional(),
+  giftsDonations: itemValueSchema.optional(),
+  sponsorshipFootDevelopment: itemValueSchema.optional(),
+  loanGranted: itemValueSchema.optional(),
+  penalty: itemValueSchema.optional(),
+  internalTransfer: itemValueSchema.optional(),
+}).optional();
+
+export const createLedgerEntrySchema = z.object({
+  body: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+    description: z.string().optional(),
+    amount: z.coerce.number().positive("Amount must be positive"),
+    cashReceivedFromBank: z.coerce.number().nonnegative().optional(),
+    natureOfTransaction: z.nativeEnum(LedgerTransactionNature),
+    entryType: z.nativeEnum(LedgerEntryType),
+    items: ledgerItemsSchema,
+  }),
+});
+
+export const updateLedgerEntrySchema = z.object({
+  body: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD").optional(),
+    description: z.string().optional(),
+    amount: z.coerce.number().positive("Amount must be positive").optional(),
+    cashReceivedFromBank: z.coerce.number().nonnegative().optional(),
+    natureOfTransaction: z.nativeEnum(LedgerTransactionNature).optional(),
+    entryType: z.nativeEnum(LedgerEntryType).optional(),
+    items: ledgerItemsSchema,
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid ledger entry ID"),
+  }),
+});

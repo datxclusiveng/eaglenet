@@ -10,6 +10,7 @@ const resources = {
   payment: ["create", "read", "update", "delete", "process"],
   voucher: ["create", "read", "update", "delete", "verify", "approve"],
   cashbook: ["create", "read", "update", "delete"],
+  ledger: ["create", "read", "update", "delete"],
   document: ["create", "read", "update", "delete", "verify"],
   workflow: ["create", "read", "update", "attach"],
   audit: ["read"],
