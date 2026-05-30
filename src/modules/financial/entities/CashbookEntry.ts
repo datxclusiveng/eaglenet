@@ -14,13 +14,8 @@ import { FinanceVoucher } from "./FinanceVoucher";
 import { BankAccount } from "./BankAccount";
 
 export enum TransactionNature {
-  RECEIPT = "receipt",
-  PAYMENT = "payment",
-  TRANSFER = "transfer",
-  DEPOSIT = "deposit",
-  WITHDRAWAL = "withdrawal",
-  BANK_CHARGE = "bank_charge",
-  OTHER = "other",
+  CASH = "cash",
+  BANK = "bank",
 }
 
 export enum EntryType {
@@ -44,7 +39,6 @@ export class CashbookEntry {
     name: "nature_of_transaction",
     type: "enum",
     enum: TransactionNature,
-    default: TransactionNature.OTHER,
   })
   natureOfTransaction!: TransactionNature;
 

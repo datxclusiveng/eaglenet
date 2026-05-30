@@ -316,7 +316,7 @@ All cashbook endpoints require authentication. Create, read, update, and delete 
 | Field | Type | Description | Required |
 | :--- | :--- | :--- | :--- |
 | `date` | String | `2026-05-30` (YYYY-MM-DD) | Yes |
-| `natureOfTransaction` | String | `receipt`, `payment`, `transfer`, `deposit`, `withdrawal`, `bank_charge`, or `other` | Yes |
+| `natureOfTransaction` | String | `cash` or `bank` | Yes |
 | `entryType` | String | `debit` or `credit` | Yes |
 | `amount` | Number | `150000` | Yes |
 | `bankName` | String | Name of the bank (e.g. "First Bank") | No |
@@ -328,7 +328,7 @@ All cashbook endpoints require authentication. Create, read, update, and delete 
 ```json
 {
   "date": "2026-05-30",
-  "natureOfTransaction": "payment",
+  "natureOfTransaction": "bank",
   "entryType": "debit",
   "amount": 150000,
   "bankName": "First Bank",
@@ -346,7 +346,7 @@ All cashbook endpoints require authentication. Create, read, update, and delete 
     "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
     "referenceNumber": "EGL-CASH-A1B2C3D4",
     "date": "2026-05-30",
-    "natureOfTransaction": "payment",
+    "natureOfTransaction": "bank",
     "entryType": "debit",
     "amount": 150000,
     "bankName": "First Bank",
@@ -371,12 +371,12 @@ Returns only the cashbook entries created by the currently authenticated user. N
 * **Query Parameters**:
   - `page` (optional): `1`
   - `limit` (optional): `10`
-  - `natureOfTransaction` (optional): `receipt`, `payment`, `transfer`, etc.
+  - `natureOfTransaction` (optional): `cash` or `bank`
   - `entryType` (optional): `debit` or `credit`
   - `startDate` (optional): `2026-05-01`
   - `endDate` (optional): `2026-05-31`
 
-#### Sample Response (`200 OK`)
+#### Sample Response (`200 OK`, My Entries)
 ```json
 {
   "status": "success",
@@ -385,7 +385,7 @@ Returns only the cashbook entries created by the currently authenticated user. N
       "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
       "referenceNumber": "EGL-CASH-A1B2C3D4",
       "date": "2026-05-30",
-      "natureOfTransaction": "payment",
+      "natureOfTransaction": "bank",
       "entryType": "debit",
       "amount": 150000,
       "bankName": "First Bank",
@@ -431,7 +431,7 @@ Returns all cashbook entries with pagination and filters. Requires `cashbook:rea
 * **Query Parameters**:
   - `page` (optional): `1`
   - `limit` (optional): `10`
-  - `natureOfTransaction` (optional): `receipt`, `payment`, `transfer`, etc.
+  - `natureOfTransaction` (optional): `cash` or `bank`
   - `entryType` (optional): `debit` or `credit`
   - `bankName` (optional): `First Bank`
   - `startDate` (optional): `2026-05-01`
@@ -446,7 +446,7 @@ Returns all cashbook entries with pagination and filters. Requires `cashbook:rea
       "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
       "referenceNumber": "EGL-CASH-A1B2C3D4",
       "date": "2026-05-30",
-      "natureOfTransaction": "payment",
+      "natureOfTransaction": "bank",
       "entryType": "debit",
       "amount": 150000,
       "bankName": "First Bank",
@@ -485,7 +485,7 @@ Returns all cashbook entries with pagination and filters. Requires `cashbook:rea
     "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
     "referenceNumber": "EGL-CASH-A1B2C3D4",
     "date": "2026-05-30",
-    "natureOfTransaction": "payment",
+    "natureOfTransaction": "bank",
     "entryType": "debit",
     "amount": 150000,
     "bankName": "First Bank",
@@ -525,7 +525,7 @@ Requires `cashbook:update` permission.
 | Field | Type | Description | Required |
 | :--- | :--- | :--- | :--- |
 | `date` | String | `2026-05-30` (YYYY-MM-DD) | No |
-| `natureOfTransaction` | String | `receipt`, `payment`, `transfer`, etc. | No |
+| `natureOfTransaction` | String | `cash` or `bank` | No |
 | `entryType` | String | `debit` or `credit` | No |
 | `amount` | Number | Updated amount | No |
 | `bankName` | String | Updated bank name | No |
@@ -541,7 +541,7 @@ Requires `cashbook:update` permission.
     "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
     "referenceNumber": "EGL-CASH-A1B2C3D4",
     "date": "2026-05-30",
-    "natureOfTransaction": "payment",
+    "natureOfTransaction": "bank",
     "entryType": "debit",
     "amount": 160000,
     "bankName": "First Bank",
@@ -573,7 +573,7 @@ Soft-deletes an entry. Requires `cashbook:delete` permission.
 1. **Zod Validation Error (`400 Bad Request`)**:
    - Ensure the `date` is formatted precisely as `YYYY-MM-DD`.
    - For `particulars` in a Cash Payment Voucher, ensure your value is valid JSON, e.g. `[{"sn": 1, "particulars": "Item A", "amount": 100}]`.
-   - For cashbook, make sure `natureOfTransaction` is one of: `receipt`, `payment`, `transfer`, `deposit`, `withdrawal`, `bank_charge`, `other`.
+   - For cashbook, make sure `natureOfTransaction` is either `cash` or `bank`.
    - For cashbook, make sure `entryType` is either `debit` or `credit`.
 2. **File Size/Type Issues**:
    - Limit file uploads (receipts, signatures) to image files (`.png`, `.jpg`, `.jpeg`) or document layouts (`.pdf`).

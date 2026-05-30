@@ -30,8 +30,7 @@ export class CreateCashbookEntries1779970000000 implements MigrationInterface {
                     {
                         name: "nature_of_transaction",
                         type: "enum",
-                        enum: ["receipt", "payment", "transfer", "deposit", "withdrawal", "bank_charge", "other"],
-                        default: `'other'`,
+                        enum: ["cash", "bank"],
                     },
                     {
                         name: "entry_type",
