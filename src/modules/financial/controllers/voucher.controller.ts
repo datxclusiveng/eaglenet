@@ -221,6 +221,46 @@ export async function listVouchers(req: Request, res: Response) {
 }
 
 /**
+ * List the current user's own voucher requests (their history)
+ * GET /api/vouchers/my
+ */
+export async function listMyVouchers(req: Request, res: Response) {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const { voucherType, status } = req.query;
+    const currentUser = (req as any).user as User;
+
+    const where: any = { createdById: currentUser.id };
+    if (voucherType) where.voucherType = voucherType;
+    if (status) where.status = status;
+
+    const [rows, total] = await repo().findAndCount({
+      where,
+      relations: ["createdBy", "staff", "authorizedBy"],
+      order: { createdAt: "DESC" },
+      skip,
+      take: limit,
+    });
+
+    const sanitizedRows = rows.map((v) => ({
+      ...v,
+      createdBy: sanitizeUser(v.createdBy),
+      staff: v.staff ? sanitizeUser(v.staff) : undefined,
+      authorizedBy: v.authorizedBy ? sanitizeUser(v.authorizedBy) : undefined,
+    }));
+
+    return res.status(200).json({
+      status: "success",
+      data: sanitizedRows,
+      meta: paginate(total, page, limit),
+    });
+  } catch (err) {
+    console.error("[VoucherController.listMy]", err);
+    return res.status(500).json({ status: "error", message: "Error listing your vouchers." });
+  }
+}
+
+/**
  * Approve or Reject a voucher
  * PATCH /api/vouchers/:id/status
  */

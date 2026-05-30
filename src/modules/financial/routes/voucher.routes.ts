@@ -3,6 +3,7 @@ import {
   createVoucher,
   getVoucher,
   listVouchers,
+  listMyVouchers,
   updateVoucherStatus,
 } from "../controllers/voucher.controller";
 import { auth } from "../../../middleware/auth.middleware";
@@ -48,6 +49,16 @@ router.get(
   ...auth,
   authorize("voucher", "read"),
   listVouchers
+);
+
+/**
+ * List the current user's own voucher history
+ * GET /api/vouchers/my
+ */
+router.get(
+  "/my",
+  ...auth,
+  listMyVouchers
 );
 
 /**
