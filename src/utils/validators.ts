@@ -2,6 +2,7 @@ import { z } from "zod";
 import { InvoiceStatus } from "../modules/financial/entities/Invoice";
 import { ShipmentStatus } from "../modules/shipments/entities/Shipment";
 import { BankAccountType } from "../modules/financial/entities/BankAccount";
+import { TransactionNature, EntryType } from "../modules/financial/entities/CashbookEntry";
 
 export const updateShipmentStatusSchema = z.object({
   body: z.object({
@@ -323,5 +324,34 @@ export const updateVoucherStatusSchema = z.object({
   params: z.object({
     id: z.string().uuid("Invalid Voucher ID format.")
   })
+});
+
+export const createCashbookEntrySchema = z.object({
+  body: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+    natureOfTransaction: z.nativeEnum(TransactionNature),
+    entryType: z.nativeEnum(EntryType),
+    amount: z.coerce.number().positive("Amount must be positive"),
+    bankName: z.string().optional(),
+    bankAccountId: z.string().uuid("Invalid bank account ID").optional(),
+    description: z.string().optional(),
+    voucherId: z.string().uuid("Invalid voucher ID").optional(),
+  }),
+});
+
+export const updateCashbookEntrySchema = z.object({
+  body: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD").optional(),
+    natureOfTransaction: z.nativeEnum(TransactionNature).optional(),
+    entryType: z.nativeEnum(EntryType).optional(),
+    amount: z.coerce.number().positive("Amount must be positive").optional(),
+    bankName: z.string().optional(),
+    bankAccountId: z.string().uuid("Invalid bank account ID").optional(),
+    description: z.string().optional(),
+    voucherId: z.string().uuid("Invalid voucher ID").optional(),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid cashbook entry ID"),
+  }),
 });
 

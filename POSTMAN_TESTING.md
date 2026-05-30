@@ -172,7 +172,63 @@ Retrieves all vouchers with optional filters.
 
 ---
 
-### C. Get Single Voucher (`GET /api/vouchers/:id`)
+### C. List My Vouchers (`GET /api/vouchers/my`)
+Returns only the vouchers created by the currently authenticated user — a personal history endpoint that requires no special permission.
+
+* **URL**: `{{baseUrl}}/api/vouchers/my`
+* **Method**: `GET`
+* **Query Parameters**:
+  - `page` (optional): `1`
+  - `limit` (optional): `10`
+  - `voucherType` (optional): `REQUEST_FOR_CASH` or `PAYMENT_AUTHORITY` or `CASH_PAYMENT_VOUCHER`
+  - `status` (optional): `PENDING`, `APPROVED`, or `REJECTED`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "78201a4e-c1cf-4d92-bb83-9d10459da104",
+      "voucherNumber": "EGL-VCH-KO9A3D12",
+      "voucherType": "REQUEST_FOR_CASH",
+      "date": "2026-05-28",
+      "amount": 50000,
+      "status": "APPROVED",
+      "staff": {
+        "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "email": "jane@eaglenet.com"
+      },
+      "createdBy": {
+        "id": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+        "firstName": "Admin",
+        "lastName": "User",
+        "email": "admin@eaglenet.com"
+      },
+      "authorizedBy": {
+        "id": "b1234567-89ab-cdef-0123-456789abcdef",
+        "firstName": "Manager",
+        "lastName": "Smith",
+        "email": "manager@eaglenet.com"
+      }
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+### D. Get Single Voucher (`GET /api/vouchers/:id`)
 Retrieves full structured details of a voucher.
 
 * **URL**: `{{baseUrl}}/api/vouchers/:id`
@@ -212,7 +268,7 @@ Retrieves full structured details of a voucher.
 
 ---
 
-### D. Update Voucher Status (`PATCH /api/vouchers/:id/status`)
+### E. Update Voucher Status (`PATCH /api/vouchers/:id/status`)
 Used by authorized managers/admins to approve or reject a voucher and attach their digital signature.
 
 * **URL**: `{{baseUrl}}/api/vouchers/:id/status`
@@ -244,10 +300,280 @@ Used by authorized managers/admins to approve or reject a voucher and attach the
 
 ---
 
-## 3. Quick Checklist for Postman Errors
+## 3. Cashbook Module
+
+The **Cashbook** module records all cash and bank transactions for financial tracking. Each entry captures the nature of the transaction, whether it's a debit or credit, the amount, and the associated bank.
+
+All cashbook endpoints require authentication. Create, read, update, and delete require the `cashbook` permission. The `/my` endpoint is available to any authenticated user and returns only their own entries.
+
+### A. Create Cashbook Entry (`POST /api/cashbook`)
+
+* **URL**: `{{baseUrl}}/api/cashbook`
+* **Method**: `POST`
+* **Headers**: `Authorization: Bearer <token>`
+* **Body Type**: `raw` (JSON)
+
+| Field | Type | Description | Required |
+| :--- | :--- | :--- | :--- |
+| `date` | String | `2026-05-30` (YYYY-MM-DD) | Yes |
+| `natureOfTransaction` | String | `receipt`, `payment`, `transfer`, `deposit`, `withdrawal`, `bank_charge`, or `other` | Yes |
+| `entryType` | String | `debit` or `credit` | Yes |
+| `amount` | Number | `150000` | Yes |
+| `bankName` | String | Name of the bank (e.g. "First Bank") | No |
+| `bankAccountId` | UUID | ID of a registered bank account | No |
+| `description` | String | Additional notes about the transaction | No |
+| `voucherId` | UUID | Link this entry to an existing voucher | No |
+
+#### Sample Request Body
+```json
+{
+  "date": "2026-05-30",
+  "natureOfTransaction": "payment",
+  "entryType": "debit",
+  "amount": 150000,
+  "bankName": "First Bank",
+  "bankAccountId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "description": "Payment for customs clearance on shipment EGL-EXP-240001",
+  "voucherId": "78201a4e-c1cf-4d92-bb83-9d10459da104"
+}
+```
+
+#### Sample Response (`201 Created`)
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
+    "referenceNumber": "EGL-CASH-A1B2C3D4",
+    "date": "2026-05-30",
+    "natureOfTransaction": "payment",
+    "entryType": "debit",
+    "amount": 150000,
+    "bankName": "First Bank",
+    "bankAccountId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Payment for customs clearance on shipment EGL-EXP-240001",
+    "voucherId": "78201a4e-c1cf-4d92-bb83-9d10459da104",
+    "createdById": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+    "isDeleted": false,
+    "createdAt": "2026-05-30T10:15:00.000Z",
+    "updatedAt": "2026-05-30T10:15:00.000Z"
+  }
+}
+```
+
+---
+
+### B. List My Cashbook Entries (`GET /api/cashbook/my`)
+Returns only the cashbook entries created by the currently authenticated user. No special permission required.
+
+* **URL**: `{{baseUrl}}/api/cashbook/my`
+* **Method**: `GET`
+* **Query Parameters**:
+  - `page` (optional): `1`
+  - `limit` (optional): `10`
+  - `natureOfTransaction` (optional): `receipt`, `payment`, `transfer`, etc.
+  - `entryType` (optional): `debit` or `credit`
+  - `startDate` (optional): `2026-05-01`
+  - `endDate` (optional): `2026-05-31`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
+      "referenceNumber": "EGL-CASH-A1B2C3D4",
+      "date": "2026-05-30",
+      "natureOfTransaction": "payment",
+      "entryType": "debit",
+      "amount": 150000,
+      "bankName": "First Bank",
+      "description": "Payment for customs clearance",
+      "createdBy": {
+        "id": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+        "firstName": "Admin",
+        "lastName": "User",
+        "email": "admin@eaglenet.com"
+      },
+      "bankAccount": {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "accountName": "EagleNet Operations",
+        "accountNumber": "0123456789",
+        "bankName": "First Bank"
+      },
+      "voucher": {
+        "id": "78201a4e-c1cf-4d92-bb83-9d10459da104",
+        "voucherNumber": "EGL-VCH-KO9A3D12",
+        "voucherType": "REQUEST_FOR_CASH",
+        "status": "APPROVED"
+      }
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+### C. List All Cashbook Entries (`GET /api/cashbook`)
+Returns all cashbook entries with pagination and filters. Requires `cashbook:read` permission.
+
+* **URL**: `{{baseUrl}}/api/cashbook`
+* **Method**: `GET`
+* **Query Parameters**:
+  - `page` (optional): `1`
+  - `limit` (optional): `10`
+  - `natureOfTransaction` (optional): `receipt`, `payment`, `transfer`, etc.
+  - `entryType` (optional): `debit` or `credit`
+  - `bankName` (optional): `First Bank`
+  - `startDate` (optional): `2026-05-01`
+  - `endDate` (optional): `2026-05-31`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
+      "referenceNumber": "EGL-CASH-A1B2C3D4",
+      "date": "2026-05-30",
+      "natureOfTransaction": "payment",
+      "entryType": "debit",
+      "amount": 150000,
+      "bankName": "First Bank",
+      "description": "Payment for customs clearance",
+      "createdBy": {
+        "id": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+        "firstName": "Admin",
+        "lastName": "User",
+        "email": "admin@eaglenet.com"
+      }
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+### D. Get Single Cashbook Entry (`GET /api/cashbook/:id`)
+
+* **URL**: `{{baseUrl}}/api/cashbook/:id`
+* **Method**: `GET`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
+    "referenceNumber": "EGL-CASH-A1B2C3D4",
+    "date": "2026-05-30",
+    "natureOfTransaction": "payment",
+    "entryType": "debit",
+    "amount": 150000,
+    "bankName": "First Bank",
+    "description": "Payment for customs clearance",
+    "bankAccount": {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "accountName": "EagleNet Operations",
+      "accountNumber": "0123456789",
+      "bankName": "First Bank"
+    },
+    "voucher": {
+      "id": "78201a4e-c1cf-4d92-bb83-9d10459da104",
+      "voucherNumber": "EGL-VCH-KO9A3D12",
+      "voucherType": "REQUEST_FOR_CASH",
+      "status": "APPROVED"
+    },
+    "createdBy": {
+      "id": "0a8a927a-9e8a-442b-93ff-183d8a571da2",
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@eaglenet.com"
+    }
+  }
+}
+```
+
+---
+
+### E. Update Cashbook Entry (`PATCH /api/cashbook/:id`)
+Requires `cashbook:update` permission.
+
+* **URL**: `{{baseUrl}}/api/cashbook/:id`
+* **Method**: `PATCH`
+* **Headers**: `Authorization: Bearer <token>`
+* **Body Type**: `raw` (JSON)
+
+| Field | Type | Description | Required |
+| :--- | :--- | :--- | :--- |
+| `date` | String | `2026-05-30` (YYYY-MM-DD) | No |
+| `natureOfTransaction` | String | `receipt`, `payment`, `transfer`, etc. | No |
+| `entryType` | String | `debit` or `credit` | No |
+| `amount` | Number | Updated amount | No |
+| `bankName` | String | Updated bank name | No |
+| `bankAccountId` | UUID | Updated linked bank account | No |
+| `description` | String | Updated description | No |
+| `voucherId` | UUID | Updated linked voucher | No |
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "c9d8e7f6-a5b4-3210-fedc-ba9876543210",
+    "referenceNumber": "EGL-CASH-A1B2C3D4",
+    "date": "2026-05-30",
+    "natureOfTransaction": "payment",
+    "entryType": "debit",
+    "amount": 160000,
+    "bankName": "First Bank",
+    "description": "Updated description with corrected amount"
+  }
+}
+```
+
+---
+
+### F. Delete Cashbook Entry (`DELETE /api/cashbook/:id`)
+Soft-deletes an entry. Requires `cashbook:delete` permission.
+
+* **URL**: `{{baseUrl}}/api/cashbook/:id`
+* **Method**: `DELETE`
+
+#### Sample Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "message": "Cashbook entry deleted."
+}
+```
+
+---
+
+## 4. Quick Checklist for Postman Errors
 
 1. **Zod Validation Error (`400 Bad Request`)**:
    - Ensure the `date` is formatted precisely as `YYYY-MM-DD`.
    - For `particulars` in a Cash Payment Voucher, ensure your value is valid JSON, e.g. `[{"sn": 1, "particulars": "Item A", "amount": 100}]`.
+   - For cashbook, make sure `natureOfTransaction` is one of: `receipt`, `payment`, `transfer`, `deposit`, `withdrawal`, `bank_charge`, `other`.
+   - For cashbook, make sure `entryType` is either `debit` or `credit`.
 2. **File Size/Type Issues**:
    - Limit file uploads (receipts, signatures) to image files (`.png`, `.jpg`, `.jpeg`) or document layouts (`.pdf`).

@@ -9,6 +9,7 @@ const resources = {
   "bank-account": ["create", "read", "update", "delete"],
   payment: ["create", "read", "update", "delete", "process"],
   voucher: ["create", "read", "update", "delete", "verify", "approve"],
+  cashbook: ["create", "read", "update", "delete"],
   document: ["create", "read", "update", "delete", "verify"],
   workflow: ["create", "read", "update", "attach"],
   audit: ["read"],
