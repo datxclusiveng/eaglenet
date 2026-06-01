@@ -4,6 +4,7 @@ import { ShipmentStatus } from "../modules/shipments/entities/Shipment";
 import { BankAccountType } from "../modules/financial/entities/BankAccount";
 import { TransactionNature, EntryType } from "../modules/financial/entities/CashbookEntry";
 import { LedgerTransactionNature, LedgerEntryType } from "../modules/financial/entities/LedgerEntry";
+import { WarehouseDirection } from "../modules/warehouse/entities/WarehouseEntry";
 
 export const updateShipmentStatusSchema = z.object({
   body: z.object({
@@ -353,6 +354,41 @@ export const updateCashbookEntrySchema = z.object({
   }),
   params: z.object({
     id: z.string().uuid("Invalid cashbook entry ID"),
+  }),
+});
+
+// ─── Warehouse Schemas ────────────────────────────────────────────────────────
+
+export const createWarehouseEntrySchema = z.object({
+  body: z.object({
+    sn: z.string().min(1, "Serial number is required"),
+    direction: z.nativeEnum(WarehouseDirection),
+    clients: z.string().min(1, "Clients field is required"),
+    awb: z.string().min(1, "AWB is required"),
+    weight: z.coerce.number().positive("Weight must be positive").optional(),
+    pkgs: z.coerce.number().int().positive("Packages must be a positive integer").optional(),
+    description: z.string().optional(),
+    dateIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dateIn must be YYYY-MM-DD"),
+    dateOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dateOut must be YYYY-MM-DD").optional(),
+    remarks: z.string().optional(),
+  }),
+});
+
+export const updateWarehouseEntrySchema = z.object({
+  body: z.object({
+    sn: z.string().min(1).optional(),
+    direction: z.nativeEnum(WarehouseDirection).optional(),
+    clients: z.string().min(1).optional(),
+    awb: z.string().min(1).optional(),
+    weight: z.coerce.number().positive("Weight must be positive").optional(),
+    pkgs: z.coerce.number().int().positive("Packages must be a positive integer").optional(),
+    description: z.string().optional(),
+    dateIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dateIn must be YYYY-MM-DD").optional(),
+    dateOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dateOut must be YYYY-MM-DD").optional(),
+    remarks: z.string().optional(),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid warehouse entry ID"),
   }),
 });
 

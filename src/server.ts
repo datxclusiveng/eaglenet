@@ -41,6 +41,7 @@ import bankAccountRoutes from "./modules/financial/routes/bank-account.routes";
 import voucherRoutes from "./modules/financial/routes/voucher.routes";
 import cashbookRoutes from "./modules/financial/routes/cashbook.routes";
 import ledgerRoutes from "./modules/financial/routes/ledger.routes";
+import warehouseRoutes from "./modules/warehouse/routes/warehouse.routes";
 
 // Load environment variables
 dotenv.config();
@@ -185,6 +186,7 @@ app.use("/api/bank-accounts", bankAccountRoutes);
 app.use("/api/vouchers", voucherRoutes);
 app.use("/api/cashbook", cashbookRoutes);
 app.use("/api/ledger", ledgerRoutes);
+app.use("/api/warehouse", warehouseRoutes);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {

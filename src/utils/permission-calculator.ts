@@ -152,6 +152,11 @@ export const ALL_KNOWN_PERMISSIONS: Array<{ resource: string; action: string }> 
   // mail
   { resource: "mail", action: "read" },
   { resource: "mail", action: "send" },
+  // warehouse
+  { resource: "warehouse", action: "create" },
+  { resource: "warehouse", action: "read" },
+  { resource: "warehouse", action: "update" },
+  { resource: "warehouse", action: "delete" },
   // search
   { resource: "search", action: "read" },
 ];

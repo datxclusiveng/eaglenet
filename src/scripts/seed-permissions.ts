@@ -22,6 +22,7 @@ const resources = {
   message: ["create", "read", "update", "delete"],
   channel: ["create", "read", "update", "delete"],
   mail: ["read", "send"],
+  warehouse: ["create", "read", "update", "delete"],
   search: ["read"],
 };
 
