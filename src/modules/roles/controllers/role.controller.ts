@@ -3,6 +3,7 @@ import { AppDataSource } from "../../../../database/data-source";
 import { Role } from "../entities/Role";
 import { Permission } from "../../permissions/entities/Permission";
 import { In } from "typeorm";
+import { invalidatePermissionCacheForRole } from "../../../utils/cache";
 
 const repo = () => AppDataSource.getRepository(Role);
 
@@ -62,6 +63,9 @@ export async function updateRolePermissions(req: Request, res: Response) {
     role.permissions = permissions;
     await repo().save(role);
 
+    // Invalidate permission caches for all users assigned to this role
+    await invalidatePermissionCacheForRole(id, AppDataSource);
+
     return res.status(200).json({ status: "success", data: role });
   } catch (err) {
     console.error("[RoleController.update]", err);
@@ -91,6 +95,9 @@ export async function deleteRole(req: Request, res: Response) {
     }
 
     await repo().softDelete(id);
+
+    // Invalidate permission caches for all users assigned to this role
+    await invalidatePermissionCacheForRole(id, AppDataSource);
 
     return res.status(200).json({
       status: "success",

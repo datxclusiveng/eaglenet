@@ -4,9 +4,12 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { AppDataSource } from "../../../../database/data-source";
 import { User, UserRole } from "../../users/entities/User";
+import { UserDepartmentRole } from "../../users/entities/UserDepartmentRole";
 import { PasswordReset } from "../entities/PasswordReset";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import { serializeUser } from "../../../utils/serializers";
+import { computePermissionMap, PermissionMap } from "../../../utils/permission-calculator";
+import { appCache } from "../../../utils/cache";
 import * as EmailService from "../../notifications/services/email.service";
 
 const userRepo = () => AppDataSource.getRepository(User);
@@ -31,6 +34,30 @@ async function assignTokens(user: User) {
 
   await userRepo().save(user);
   return { token, refreshToken: rawRefreshToken };
+}
+
+/**
+ * Load a user's permission map, with caching.
+ * Cache key: perm:{userId}:{tokenVersion} — auto-invalidates on password change or global logout.
+ */
+async function getUserPermissions(user: User): Promise<PermissionMap> {
+  const cacheKey = `perm:${user.id}:${user.tokenVersion ?? 0}`;
+  const cached = appCache.get<PermissionMap>(cacheKey);
+  if (cached) return cached;
+
+  // Load departmental roles with full permission chain
+  const udrRepo = AppDataSource.getRepository(UserDepartmentRole);
+  const departmentRoles = await udrRepo.find({
+    where: { userId: user.id },
+    relations: ["role", "role.permissions", "department"],
+  });
+
+  // Attach to user object so computePermissionMap can read them
+  user.departmentRoles = departmentRoles;
+
+  const permissionMap = computePermissionMap(user);
+  appCache.set(cacheKey, permissionMap, 300); // 5 min TTL
+  return permissionMap;
 }
 
 // ─── Register ─────────────────────────────────────────────────────────────────
@@ -78,6 +105,7 @@ export async function register(req: Request, res: Response) {
     await repo.save(user);
 
     const tokens = await assignTokens(user);
+    const permissions = await getUserPermissions(user);
 
     createAuditLog({
       entityType: "User",
@@ -93,6 +121,7 @@ export async function register(req: Request, res: Response) {
       {
         ...tokens,
         user: serializeUser(user),
+        permissions,
       },
       "Registration successful."
     );
@@ -157,6 +186,7 @@ export async function login(req: Request, res: Response) {
     await repo.save(user);
 
     const tokens = await assignTokens(user);
+    const permissions = await getUserPermissions(user);
 
     createAuditLog({
       entityType: "User",
@@ -171,6 +201,7 @@ export async function login(req: Request, res: Response) {
       {
         ...tokens,
         user: serializeUser(user),
+        permissions,
       },
       "Login successful."
     );
@@ -187,7 +218,11 @@ export async function login(req: Request, res: Response) {
 export async function me(req: Request, res: Response) {
   try {
     const user = (req as any).user as User;
-    return (res as any).success(serializeUser(user));
+    const permissions = await getUserPermissions(user);
+    return (res as any).success({
+      user: serializeUser(user),
+      permissions,
+    });
   } catch (err) {
     return res
       .status(500)
@@ -439,6 +474,24 @@ export async function resetPassword(req: Request, res: Response) {
     return (res as any).success(null, "Password reset successful. Please login with your new password.");
   } catch (err) {
     console.error("[AuthController.resetPassword]", err);
+    return res.status(500).json({ status: "error", message: "Internal server error." });
+  }
+}
+
+// ─── Get Permissions ──────────────────────────────────────────────────────────
+
+/**
+ * GET /api/auth/permissions
+ * Returns the full permission map for the authenticated user.
+ * Useful for refreshing permissions after role changes without a full re-login.
+ */
+export async function getPermissions(req: Request, res: Response) {
+  try {
+    const user = (req as any).user as User;
+    const permissions = await getUserPermissions(user);
+    return (res as any).success(permissions, "Permissions retrieved successfully.");
+  } catch (err) {
+    console.error("[AuthController.getPermissions]", err);
     return res.status(500).json({ status: "error", message: "Internal server error." });
   }
 }

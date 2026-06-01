@@ -11,6 +11,7 @@ import { AuditLog } from "../../audit/entities/AuditLog";
 import { parsePagination, paginate } from "../../../utils/helpers";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import { serializeUser } from "../../../utils/serializers";
+import { invalidatePermissionCache } from "../../../utils/cache";
 import crypto from "crypto";
 import { getOnlineUserIds } from "../../../socket";
 
@@ -126,6 +127,8 @@ export async function createStaff(req: Request, res: Response) {
     });
     await AppDataSource.getRepository(UserDepartmentRole).save(udr);
 
+    invalidatePermissionCache(user.id);
+
     // Update department staff count
     await AppDataSource.getRepository(Department).increment(
       { id: dept.id },
@@ -182,6 +185,8 @@ export async function upgradeToAdmin(req: Request, res: Response) {
     target.role = UserRole.ADMIN;
     await repo.save(target);
 
+    invalidatePermissionCache(target.id);
+
     createAuditLog({
       entityType: "User",
       entityId: target.id,
@@ -223,6 +228,8 @@ export async function downgradeToStaff(req: Request, res: Response) {
     const previousRole = target.role;
     target.role = UserRole.STAFF;
     await repo.save(target);
+
+    invalidatePermissionCache(target.id);
 
     createAuditLog({
       entityType: "User",
@@ -266,6 +273,8 @@ export async function deactivateUser(req: Request, res: Response) {
     target.refreshToken = undefined;
     target.refreshTokenExpiresAt = undefined;
     await repo.save(target);
+
+    invalidatePermissionCache(target.id);
 
     createAuditLog({
       entityType: "User",

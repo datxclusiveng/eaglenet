@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { register, login, me, refresh, logout, logoutAll, changePassword, forgotPassword, resetPassword } from "../controllers/auth.controller";
+import { register, login, me, refresh, logout, logoutAll, changePassword, forgotPassword, resetPassword, getPermissions } from "../controllers/auth.controller";
 import { auth } from "../../../middleware/auth.middleware";
 import { validate } from "../../../middleware/validate.middleware";
 import { registerSchema, loginSchema } from "../../../utils/validators";
@@ -59,5 +59,12 @@ router.post("/logout-all", ...auth, logoutAll);
  * Invalidates all existing sessions on success.
  */
 router.patch("/change-password", ...auth, changePassword);
+
+/**
+ * GET /api/auth/permissions
+ * Returns the full permission map for the authenticated user.
+ * Use this to refresh permissions after role changes without a full re-login.
+ */
+router.get("/permissions", ...auth, getPermissions);
 
 export default router;

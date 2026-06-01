@@ -8,6 +8,7 @@ import { Role } from "../../roles/entities/Role";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import { parsePagination, paginate } from "../../../utils/helpers";
 import { serializeEntity } from "../../../utils/serializers";
+import { invalidatePermissionCache } from "../../../utils/cache";
 
 const repo = () => AppDataSource.getRepository(Department);
 
@@ -257,6 +258,8 @@ export async function assignStaff(req: Request, res: Response) {
     const udr = udrRepo.create({ userId, departmentId, roleId });
     await udrRepo.save(udr);
 
+    invalidatePermissionCache(userId);
+
     // Update count
     await repo().increment({ id: departmentId }, "totalStaff", 1);
 
@@ -314,6 +317,8 @@ export async function unassignStaff(req: Request, res: Response) {
 
     // Remove the UDR record
     await udrRepo.remove(assignment);
+
+    invalidatePermissionCache(userId);
 
     // Decrement the denormalized totalStaff counter on the department
     await repo().decrement({ id: departmentId }, "totalStaff", 1);
