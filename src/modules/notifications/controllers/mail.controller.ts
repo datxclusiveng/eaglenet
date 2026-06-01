@@ -5,27 +5,65 @@ import { createAuditLog, AuditAction } from "../../audit/services/audit.service"
 import { AppDataSource } from "../../../../database/data-source";
 import { EmailLog } from "../entities/EmailLog";
 import { parsePagination, paginate, sanitizeUser } from "../../../utils/helpers";
+import { uploadFile } from "../../../utils/storage.service";
 
 /**
  * POST /api/mail/send
  * Free-form email sender for staff/admins.
+ * Supports optional file attachments (multipart/form-data).
  */
 export async function sendCustomEmail(req: Request, res: Response) {
   try {
     const user = (req as any).user as User;
     const { to, subject, body } = req.body;
 
+    // Extract uploaded files from multer (undefined if no files sent)
+    const uploadedFiles =
+      (req.files as { [fieldname: string]: Express.Multer.File[] } | undefined)?.["attachments"] ?? [];
+
+    // Build attachment arrays
+    const emailAttachments: Array<{ filename: string; content: Buffer; content_type: string }> = [];
+    const attachmentUrls: Array<{ name: string; url: string }> = [];
+
+    if (uploadedFiles.length > 0) {
+      for (const file of uploadedFiles) {
+        // Upload to B2 for audit trail persistence
+        const uploaded = await uploadFile(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+          "mail-attachments"
+        );
+        attachmentUrls.push({ name: file.originalname, url: uploaded.url });
+
+        // Keep buffer for direct email attachment
+        emailAttachments.push({
+          filename: file.originalname,
+          content: file.buffer,
+          content_type: file.mimetype,
+        });
+      }
+    }
+
     await send({
       to,
       subject,
       html: body,
       sentById: user.id,
+      attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
+      attachmentUrls: attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : undefined,
     });
 
     createAuditLog({
       entityType: "Email",
       action: AuditAction.SEND,
-      actionDetails: { to, subject, body_preview: body?.substring(0, 50) },
+      actionDetails: {
+        to,
+        subject,
+        body_preview: body?.substring(0, 50),
+        attachment_count: uploadedFiles.length > 0 ? uploadedFiles.length : undefined,
+        attachment_names: uploadedFiles.length > 0 ? uploadedFiles.map(f => f.originalname) : undefined,
+      },
       performedBy: user.id,
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],

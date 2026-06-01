@@ -36,6 +36,12 @@ const smtpTransporter = process.env.SMTP_HOST
     })
   : null;
 
+interface AttachmentDef {
+  filename: string;
+  content: Buffer;
+  content_type: string;
+}
+
 interface EmailPayload {
   to: string;
   subject: string;
@@ -45,12 +51,14 @@ interface EmailPayload {
   templateUsed?: string;
   sentById?: string;
   templateData?: any;
+  attachments?: AttachmentDef[];
+  attachmentUrls?: string; // JSON array of { name, url } for audit log
 }
 
 async function logEmail(payload: EmailPayload, status: EmailStatus, error?: string) {
   try {
     const repo = AppDataSource.getRepository(EmailLog);
-    const log = repo.create({
+    const logData: Record<string, any> = {
       recipientEmail: payload.to,
       subject: payload.subject,
       shipmentId: payload.shipmentId,
@@ -60,7 +68,14 @@ async function logEmail(payload: EmailPayload, status: EmailStatus, error?: stri
       status,
       body: payload.html,
       errorMessage: error,
-    });
+    };
+    if (payload.attachments?.length) {
+      logData.attachmentCount = payload.attachments.length;
+    }
+    if (payload.attachmentUrls) {
+      logData.attachmentUrls = payload.attachmentUrls;
+    }
+    const log = repo.create(logData as any);
     await repo.save(log);
   } catch (err) {
     console.error("[EmailService] Failed to log email:", err);
@@ -193,13 +208,33 @@ export async function send(payload: EmailPayload) {
   let status = EmailStatus.SENT;
   let errorMessage: string | undefined;
 
+  // Build attachment arrays for providers
+  const resendAttachments = payload.attachments?.map(a => ({
+    filename: a.filename,
+    content: a.content,
+    content_type: a.content_type,
+  }));
+
+  const nodemailerAttachments = payload.attachments?.map(a => ({
+    filename: a.filename,
+    content: a.content,
+    contentType: a.content_type,
+  }));
+
   try {
     if (PROVIDER === "console") {
-      console.info(`To: ${payload.to} | Sub: ${payload.subject}`);
+      const attNames = payload.attachments?.map(a => a.filename).join(", ") ?? "none";
+      console.info(`To: ${payload.to} | Sub: ${payload.subject} | Attachments: ${attNames}`);
     } else if (PROVIDER === "smtp" && smtpTransporter) {
-      await smtpTransporter.sendMail({ from: MAIL_FROM, to: payload.to, subject: payload.subject, html: payload.html });
+      await smtpTransporter.sendMail({
+        from: MAIL_FROM, to: payload.to, subject: payload.subject, html: payload.html,
+        attachments: nodemailerAttachments,
+      });
     } else {
-      await resend.emails.send({ from: MAIL_FROM, to: payload.to, subject: payload.subject, html: payload.html });
+      await resend.emails.send({
+        from: MAIL_FROM, to: payload.to, subject: payload.subject, html: payload.html,
+        attachments: resendAttachments,
+      });
     }
   } catch (err: any) {
     status = EmailStatus.FAILED;

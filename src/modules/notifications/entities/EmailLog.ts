@@ -61,6 +61,12 @@ export class EmailLog {
   @Column({ type: "text", nullable: true })
   body?: string;
 
+  @Column({ name: "attachment_count", type: "integer", nullable: true })
+  attachmentCount?: number;
+
+  @Column({ name: "attachment_urls", type: "text", nullable: true })
+  attachmentUrls?: string;
+
   @Column({ name: "error_message", type: "text", nullable: true })
   errorMessage?: string;
 
