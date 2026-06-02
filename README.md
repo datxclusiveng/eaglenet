@@ -244,7 +244,7 @@ The permission map is **cached server-side for 5 minutes** (keyed by `userId:tok
 | `invoice` | `create`, `read`, `update`, `delete`, `verify`, `approve`, `reconcile`, `submit` |
 | `bank-account` | `create`, `read`, `update`, `delete` |
 | `payment` | `create`, `read`, `update`, `delete`, `process` |
-| `voucher` | `create`, `read`, `update`, `delete`, `verify`, `approve` |
+| `voucher` | `create`, `read`, `update`, `delete`, `verify`, `approve`, `pay` |
 | `cashbook` | `create`, `read`, `update`, `delete` |
 | `ledger` | `create`, `read`, `update`, `delete` |
 | `document` | `create`, `read`, `update`, `delete`, `verify` |
@@ -876,6 +876,517 @@ Every warehouse mutation (create, update, soft-delete) writes to the system audi
 - `ipAddress` and `userAgent`: from the request
 
 Use `GET /api/audit?entityType=WarehouseEntry` (with `audit:read` permission) to inspect the full history of warehouse changes.
+
+---
+
+## Vouchers (Request for Cash / Payment Authority / Cash Payment Voucher)
+
+Manages financial voucher lifecycle — creation, approval/rejection, and marking as paid with evidence. Three voucher types support different financial workflows: staff cash requests, bank transfer payment authorities, and cash payment vouchers.
+
+**Base URL:** `/api/vouchers`
+
+### Voucher Types
+
+| Type | Enum Value | Use Case |
+|------|-----------|----------|
+| Request for Cash | `REQUEST_FOR_CASH` | Staff member requests cash for expenses |
+| Payment Authority | `PAYMENT_AUTHORITY` | Authorization to pay a beneficiary via bank transfer |
+| Cash Payment Voucher | `CASH_PAYMENT_VOUCHER` | Record of cash paid out with line items |
+
+### Voucher Status Flow
+
+```
+PENDING → APPROVED → PAID (terminal — new)
+PENDING → REJECTED (terminal)
+```
+
+Only vouchers in `APPROVED` status can be marked as `PAID`. Once paid, the status is terminal.
+
+---
+
+### 1. Create Voucher
+
+```
+POST /api/vouchers
+```
+
+Requires `voucher:create` permission. Supports multipart file uploads for receipts and signatures.
+
+**Headers**
+```
+Authorization: Bearer <jwt>
+Content-Type: multipart/form-data
+```
+
+**Request Body Fields**
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `voucherType` | enum | **Yes** | `REQUEST_FOR_CASH`, `PAYMENT_AUTHORITY`, or `CASH_PAYMENT_VOUCHER` | Type of voucher |
+| `date` | string | **Yes** | Format `YYYY-MM-DD` | Voucher date |
+| `amount` | number | **Yes** | Positive decimal | Amount |
+| `totalAmount` | number | No | Positive decimal | Total (defaults to `amount`) |
+| `purpose` | string | No | — | Purpose of the voucher |
+
+**Type-Specific Fields**
+| Field | Type | Applies To | Description |
+|-------|------|-----------|-------------|
+| `staffId` | UUID | Request for Cash | Staff member requesting cash |
+| `bankTransferDate` | string | Payment Authority | Date of bank transfer (YYYY-MM-DD) |
+| `beneficiaryName` | string | Payment Authority | Name of beneficiary |
+| `particulars` | array | Cash Payment Voucher | JSON array of `{ sn, particulars, amount }` objects |
+| `amountInWords` | string | Cash Payment Voucher | Amount written in words |
+| `itemsDescription` | string | Cash Payment Voucher | Description of items purchased |
+| `itemsCount` | number | Cash Payment Voucher | Number of items |
+| `receivedById` | UUID | Cash Payment Voucher | User who received the cash |
+| `receivedByName` | string | Cash Payment Voucher | Name of receiver |
+| `issuedById` | UUID | Cash Payment Voucher | User who issued the cash |
+
+**Upload Fields** (multipart file uploads — each max 1 file)
+| Field | Description |
+|-------|-------------|
+| `receipt` | General receipt or attachment |
+| `staffSignature` | Signature for Request for Cash staff |
+| `receivedBySignature` | Signature of cash receiver |
+| `issuedBySignature` | Signature of cash issuer |
+
+> If no signature file is uploaded, the system falls back to the referenced user's pre-configured `signatureUrl` (or the creator's signature).
+
+**Example Request** (JSON — no files)
+```json
+{
+  "voucherType": "REQUEST_FOR_CASH",
+  "date": "2026-06-02",
+  "purpose": "Office supplies for Operations dept",
+  "amount": 50000,
+  "staffId": "a1b2c3d4-..."
+}
+```
+
+**Success Response** — `201 Created`
+```json
+{
+  "status": "success",
+  "message": "Voucher created successfully.",
+  "data": {
+    "id": "v1b2c3d4-...",
+    "voucherNumber": "EGL-VCH-1234567890",
+    "voucherType": "REQUEST_FOR_CASH",
+    "date": "2026-06-02",
+    "purpose": "Office supplies for Operations dept",
+    "amount": "50000.00",
+    "totalAmount": "50000.00",
+    "status": "PENDING",
+    "staffId": "a1b2c3d4-...",
+    "createdById": "u1b2c3d4-...",
+    "createdAt": "2026-06-02T10:00:00.000Z",
+    "updatedAt": "2026-06-02T10:00:00.000Z"
+  }
+}
+```
+
+**Error Responses**
+| Status | Body | When |
+|--------|------|------|
+| `400` | `{ "status": "error", "message": "Validation failed", "errors": { ... } }` | Missing required field, invalid date, negative amount |
+| `401` | `{ "status": "error", "message": "Authentication required." }` | Missing or expired JWT |
+| `403` | `{ "status": "error", "message": "Access Denied..." }` | User lacks `voucher:create` permission |
+| `500` | `{ "status": "error", "message": "Error creating voucher." }` | Database or S3 error |
+
+> Voucher numbers are auto-generated as `EGL-VCH-<timestamp><random>`. `createdById` is set automatically from the JWT.
+
+---
+
+### 2. List All Vouchers
+
+```
+GET /api/vouchers
+```
+
+Requires `voucher:read` permission. Returns paginated list with optional type/status filtering.
+
+**Headers**
+```
+Authorization: Bearer <jwt>
+```
+
+**Query Parameters** — all optional
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | number | `1` | Page number |
+| `limit` | number | `20` | Items per page |
+| `voucherType` | string | — | Filter by `REQUEST_FOR_CASH`, `PAYMENT_AUTHORITY`, or `CASH_PAYMENT_VOUCHER` |
+| `status` | string | — | Filter by `PENDING`, `APPROVED`, `REJECTED`, or `PAID` |
+
+**Example Request**
+```
+GET /api/vouchers?status=APPROVED&voucherType=PAYMENT_AUTHORITY&page=1&limit=20
+```
+
+**Success Response** — `200 OK`
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "v1b2c3d4-...",
+      "voucherNumber": "EGL-VCH-1234567890",
+      "voucherType": "PAYMENT_AUTHORITY",
+      "date": "2026-06-01",
+      "purpose": "Vendor payment — Lagos supplies",
+      "amount": "250000.00",
+      "totalAmount": "250000.00",
+      "status": "APPROVED",
+      "beneficiaryName": "Acme Supplies Ltd",
+      "authorizedById": "a1b2c3d4-...",
+      "authorizedAt": "2026-06-01T14:30:00.000Z",
+      "createdBy": { "id": "uuid", "firstName": "Jane", "lastName": "Doe", "email": "jane@eaglenet.com" },
+      "staff": null,
+      "paidBy": null,
+      "createdAt": "2026-06-01T09:00:00.000Z",
+      "updatedAt": "2026-06-01T14:30:00.000Z"
+    }
+  ],
+  "meta": { "total": 42, "page": 1, "limit": 20, "totalPages": 3 }
+}
+```
+
+> All signature and receipt URLs are resolved to presigned download URLs before being returned. Results ordered by `createdAt DESC`.
+
+---
+
+### 3. List My Vouchers
+
+```
+GET /api/vouchers/my
+```
+
+Returns vouchers created by the authenticated user. No special permission required — any logged-in user can see their own voucher history.
+
+**Headers**
+```
+Authorization: Bearer <jwt>
+```
+
+**Query Parameters** — same as List All Vouchers (`page`, `limit`, `voucherType`, `status`)
+
+**Success Response** — `200 OK` (same shape as List All)
+
+---
+
+### 4. Get Single Voucher
+
+```
+GET /api/vouchers/:id
+```
+
+Requires `voucher:read` permission. Returns full details with all relations resolved.
+
+**Headers**
+```
+Authorization: Bearer <jwt>
+```
+
+**Path Parameters**
+| Param | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Voucher ID (UUID v4) |
+
+**Success Response** — `200 OK`
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "v1b2c3d4-...",
+    "voucherNumber": "EGL-VCH-1234567890",
+    "voucherType": "CASH_PAYMENT_VOUCHER",
+    "date": "2026-06-01",
+    "purpose": "Petty cash — cleaning supplies",
+    "amount": "15000.00",
+    "status": "PAID",
+    "particulars": [
+      { "sn": 1, "particulars": "Cleaning detergent (5L)", "amount": 5000 },
+      { "sn": 2, "particulars": "Mop and bucket set", "amount": 10000 }
+    ],
+    "receivedByName": "John Smith",
+    "authorizedBy": { "id": "uuid", "firstName": "Admin", "lastName": "User", "email": "admin@eaglenet.com" },
+    "paidBy": { "id": "uuid", "firstName": "Finance", "lastName": "Officer", "email": "finance@eaglenet.com" },
+    "paidAt": "2026-06-02T09:00:00.000Z",
+    "paymentMethod": "cash",
+    "paymentReference": "Teller-00123",
+    "paymentNotes": "Handed to John at HQ",
+    "createdBy": { "id": "uuid", "firstName": "Jane", "lastName": "Doe", "email": "jane@eaglenet.com" },
+    "createdAt": "2026-06-01T08:00:00.000Z",
+    "updatedAt": "2026-06-02T09:00:00.000Z"
+  }
+}
+```
+
+**Error Responses**
+| Status | Body | When |
+|--------|------|------|
+| `400` | `{ "status": "error", "message": "Validation failed" }` | ID is not a valid UUID |
+| `401` | `{ "status": "error", "message": "Authentication required." }` | Missing or expired JWT |
+| `403` | `{ "status": "error", "message": "Access Denied..." }` | User lacks `voucher:read` permission |
+| `404` | `{ "status": "error", "message": "Voucher not found." }` | Voucher doesn't exist |
+| `500` | `{ "status": "error", "message": "Error retrieving voucher." }` | Database error |
+
+---
+
+### 5. Approve or Reject a Voucher
+
+```
+PATCH /api/vouchers/:id/status
+```
+
+Requires `voucher:update` permission. Only `PENDING` vouchers can be approved or rejected.
+
+**Headers**
+```
+Authorization: Bearer <jwt>
+Content-Type: multipart/form-data
+```
+
+**Path Parameters**
+| Param | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Voucher ID (UUID v4) |
+
+**Request Body Fields**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `status` | enum | **Yes** | `"APPROVED"` or `"REJECTED"` |
+| `rejectionReason` | string | No (required if REJECTED) | Reason for rejection |
+| `authorizedSignatureUrl` | string | No | Pre-existing signature URL |
+
+**Upload Field**
+| Field | Description |
+|-------|-------------|
+| `authorizedSignature` | Signature file of the authorizing officer |
+
+> If no signature file is uploaded, the system falls back to the authorizer's pre-configured `signatureUrl`.
+
+**Example Request** (JSON)
+```json
+{
+  "status": "APPROVED"
+}
+```
+
+**Example Request** — Rejection
+```json
+{
+  "status": "REJECTED",
+  "rejectionReason": "Insufficient documentation — please attach receipts."
+}
+```
+
+**Success Response** — `200 OK`
+```json
+{
+  "status": "success",
+  "message": "Voucher approved successfully.",
+  "data": {
+    "id": "v1b2c3d4-...",
+    "voucherNumber": "EGL-VCH-1234567890",
+    "status": "APPROVED",
+    "authorizedById": "a1b2c3d4-...",
+    "authorizedAt": "2026-06-02T10:30:00.000Z",
+    "...": "..."
+  }
+}
+```
+
+**Error Responses**
+| Status | Body | When |
+|--------|------|------|
+| `400` | `{ "status": "error", "message": "Voucher status cannot be changed. It is already APPROVED." }` | Voucher is not in PENDING status |
+| `400` | `{ "status": "error", "message": "Validation failed" }` | `status` is not APPROVED or REJECTED |
+| `401` | `{ "status": "error", "message": "Authentication required." }` | Missing or expired JWT |
+| `403` | `{ "status": "error", "message": "Access Denied..." }` | User lacks `voucher:update` permission |
+| `404` | `{ "status": "error", "message": "Voucher not found." }` | Voucher doesn't exist |
+
+---
+
+### 6. Mark Voucher as Paid (NEW)
+
+```
+PATCH /api/vouchers/:id/pay
+```
+
+Requires `voucher:pay` permission. Marks an **approved** voucher as paid with evidence of disbursement. This is a terminal action — once paid, the status cannot be changed. Automatically creates a cashbook entry (CREDIT) recording the actual cash outflow.
+
+**Headers**
+```
+Authorization: Bearer <jwt>
+Content-Type: multipart/form-data
+```
+
+**Path Parameters**
+| Param | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Voucher ID (UUID v4) |
+
+**Request Body Fields**
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `paymentMethod` | string | **Yes** | Non-empty | How the payment was made: `"bank_transfer"`, `"cash"`, `"check"`, etc. |
+| `paymentReference` | string | No | — | Bank reference number, teller number, check number, or transaction ID |
+| `paymentNotes` | string | No | — | Any additional notes about the disbursement |
+| `paidBySignatureUrl` | string | No | — | Pre-existing signature URL of the confirming officer |
+
+**Upload Fields** (multipart — each max 1 file)
+| Field | Description |
+|-------|-------------|
+| `paymentEvidence` | Screenshot, bank teller receipt, transfer confirmation, or any proof of payment (stored on S3) |
+| `paidBySignature` | Signature file of the officer confirming disbursement |
+
+> If no signature file is uploaded, the system falls back to the confirming officer's pre-configured `signatureUrl`.
+
+**Example Request** (JSON — no files)
+```json
+{
+  "paymentMethod": "bank_transfer",
+  "paymentReference": "TRF-20260602-001234",
+  "paymentNotes": "Transferred to beneficiary's GT Bank account"
+}
+```
+
+**Example Request** — Multipart (with payment evidence)
+```
+Fields:
+  paymentMethod: bank_transfer
+  paymentReference: NIP-20260602-987654
+  paymentNotes: Instant transfer via NIBSS
+
+Files:
+  paymentEvidence: transfer-receipt.png
+  paidBySignature: finance-officer-signature.png
+```
+
+**Success Response** — `200 OK`
+```json
+{
+  "status": "success",
+  "message": "Voucher marked as paid successfully.",
+  "data": {
+    "id": "v1b2c3d4-...",
+    "voucherNumber": "EGL-VCH-1234567890",
+    "voucherType": "PAYMENT_AUTHORITY",
+    "date": "2026-06-01",
+    "purpose": "Vendor payment — Lagos supplies",
+    "amount": "250000.00",
+    "status": "PAID",
+    "beneficiaryName": "Acme Supplies Ltd",
+    "authorizedBy": { "id": "uuid", "firstName": "Admin", "lastName": "User" },
+    "authorizedAt": "2026-06-01T14:30:00.000Z",
+    "paidBy": { "id": "uuid", "firstName": "Finance", "lastName": "Officer" },
+    "paidAt": "2026-06-02T11:00:00.000Z",
+    "paidBySignatureUrl": "https://...",
+    "paymentEvidenceUrl": "https://...",
+    "paymentMethod": "bank_transfer",
+    "paymentReference": "TRF-20260602-001234",
+    "paymentNotes": "Transferred to beneficiary's GT Bank account",
+    "createdBy": { "id": "uuid", "firstName": "Jane", "lastName": "Doe" },
+    "createdAt": "2026-06-01T08:00:00.000Z",
+    "updatedAt": "2026-06-02T11:00:00.000Z"
+  }
+}
+```
+
+**Error Responses**
+| Status | Body | When |
+|--------|------|------|
+| `400` | `{ "status": "error", "message": "Only approved vouchers can be marked as paid. This voucher is currently PENDING." }` | Voucher is not in APPROVED status |
+| `400` | `{ "status": "error", "message": "Only approved vouchers can be marked as paid. This voucher is currently PAID." }` | Voucher was already marked as paid |
+| `400` | `{ "status": "error", "message": "Validation failed", "errors": { "body": { "paymentMethod": "Payment method is required" } } }` | Missing `paymentMethod` |
+| `401` | `{ "status": "error", "message": "Authentication required." }` | Missing or expired JWT |
+| `403` | `{ "status": "error", "message": "Access Denied..." }` | User lacks `voucher:pay` permission |
+| `404` | `{ "status": "error", "message": "Voucher not found." }` | Voucher doesn't exist |
+| `500` | `{ "status": "error", "message": "Error marking voucher as paid." }` | Database or S3 error |
+
+### Side Effects of Marking as Paid
+
+When a voucher is marked as paid, two additional records are created automatically:
+
+**1. Cashbook Entry** — A CREDIT entry is created in the cashbook linked to the voucher:
+- `natureOfTransaction`: `BANK` if `paymentMethod` contains "bank" or "transfer", otherwise `CASH`
+- `entryType`: `CREDIT` (money has left the account)
+- `amount`: same as the voucher amount
+- `voucherId`: links back to the voucher for traceability
+- `description`: auto-generated, e.g. "Payment for voucher EGL-VCH-xxx — bank_transfer"
+
+**2. Audit Log Entry** — An immutable audit record is written:
+- `entityType`: `"FinanceVoucher"`
+- `action`: `"voucher_paid"`
+- `actionDetails`: includes `voucherNumber`, `amount`, `paymentMethod`, and `paymentReference`
+
+### Paid Fields Reference
+
+Every voucher returned by GET endpoints includes these payment-related fields (null unless the voucher has been marked as paid):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | enum | `"PAID"` once confirmed |
+| `paidAt` | ISO 8601 \| null | When payment was confirmed |
+| `paidBy` | object \| null | Sanitized user who confirmed the payment |
+| `paidBySignatureUrl` | string \| null | Presigned URL for the confirming officer's signature |
+| `paymentEvidenceUrl` | string \| null | Presigned URL for uploaded proof of payment (bank teller, transfer receipt, screenshot) |
+| `paymentMethod` | string \| null | e.g. `"bank_transfer"`, `"cash"`, `"check"` |
+| `paymentReference` | string \| null | Bank reference number, teller number, check number |
+| `paymentNotes` | string \| null | Any additional notes about the disbursement |
+
+### Permission: `voucher:pay`
+
+The `voucher:pay` permission is separate from `voucher:update` (which handles approval/rejection). This allows organizations to assign payment confirmation to a dedicated finance/treasury role while approval authority stays with managers.
+
+- **Seeded scopes:** `DEPARTMENT` and `ALL`
+- **Who should have it:** Finance officers, treasury staff, accountants — roles responsible for verifying that funds were actually disbursed
+- **Fast-path whitelist:** Not included — must be explicitly granted via role assignments
+
+### Voucher Response Field Reference
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `voucherNumber` | string | Unique auto-generated number (`EGL-VCH-...`) |
+| `voucherType` | `REQUEST_FOR_CASH` \| `PAYMENT_AUTHORITY` \| `CASH_PAYMENT_VOUCHER` | Type of voucher |
+| `date` | string | Voucher date (`YYYY-MM-DD`) |
+| `purpose` | string \| null | Purpose of the voucher |
+| `amount` | string | Amount (decimal returned as string for precision) |
+| `totalAmount` | string \| null | Total amount |
+| `status` | `PENDING` \| `APPROVED` \| `REJECTED` \| `PAID` | Current status |
+| `receiptUrl` | string \| null | Presigned URL for general receipt/attachment |
+| `staff` | object \| null | Staff member (Request for Cash) |
+| `staffSignatureUrl` | string \| null | Staff signature URL |
+| `beneficiaryName` | string \| null | Beneficiary name (Payment Authority) |
+| `bankTransferDate` | string \| null | Bank transfer date (Payment Authority) |
+| `particulars` | array \| null | Line items (Cash Payment Voucher) |
+| `receivedBy` | object \| null | Who received the cash |
+| `issuedBy` | object \| null | Who issued the cash |
+| `authorizedBy` | object \| null | Who approved/rejected the voucher |
+| `authorizedAt` | ISO 8601 \| null | When the voucher was approved or rejected |
+| `rejectionReason` | string \| null | Why the voucher was rejected |
+| `paidBy` | object \| null | Who confirmed payment (PAID vouchers only) |
+| `paidAt` | ISO 8601 \| null | When payment was confirmed |
+| `paymentMethod` | string \| null | Method used for disbursement |
+| `paymentReference` | string \| null | Reference number for the payment |
+| `paymentEvidenceUrl` | string \| null | Presigned URL for uploaded payment proof |
+| `paymentNotes` | string \| null | Notes about the disbursement |
+| `createdBy` | object | User who created the voucher (sanitized) |
+| `createdAt` | ISO 8601 | Creation timestamp |
+| `updatedAt` | ISO 8601 | Last update timestamp |
+
+### Audit Trail
+
+Every voucher mutation writes to the system audit log with:
+- `entityType`: `"FinanceVoucher"`
+- `entityId`: the voucher's UUID
+- `action`: `CREATE` (created), `UPDATE` (approved), `DELETE` (rejected), or `voucher_paid` (marked as paid)
+- `actionDetails`: includes `voucherNumber`, `amount`, `paymentMethod`, `paymentReference` where applicable
+- `performedBy`: the authenticated user's ID
+- `ipAddress` and `userAgent`: from the request
+
+Use `GET /api/audit?entityType=FinanceVoucher` (with `audit:read` permission) to inspect the full history of voucher changes.
 
 ---
 

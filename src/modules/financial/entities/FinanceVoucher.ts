@@ -20,6 +20,7 @@ export enum VoucherStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
+  PAID = "PAID",
 }
 
 export type VoucherItem = {
@@ -137,6 +138,33 @@ export class FinanceVoucher {
 
   @Column({ name: "rejection_reason", type: "text", nullable: true })
   rejectionReason?: string;
+
+  // ─── Payment / Disbursement confirmation ────────────────────────────────────
+  @Column({ name: "paid_at", type: "timestamp", nullable: true })
+  paidAt?: Date;
+
+  @Column({ name: "paid_by_id", nullable: true })
+  paidById?: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "paid_by_id" })
+  paidBy?: User;
+
+  @Column({ name: "paid_by_signature_url", type: "text", nullable: true })
+  paidBySignatureUrl?: string;
+
+  // S3 URL for uploaded payment proof (bank teller, transfer receipt, screenshot)
+  @Column({ name: "payment_evidence_url", type: "text", nullable: true })
+  paymentEvidenceUrl?: string;
+
+  @Column({ name: "payment_method", nullable: true })
+  paymentMethod?: string;
+
+  @Column({ name: "payment_reference", nullable: true })
+  paymentReference?: string;
+
+  @Column({ name: "payment_notes", type: "text", nullable: true })
+  paymentNotes?: string;
 
   // ─── Creator ───────────────────────────────────────────────────────────────
   @Column({ name: "created_by_id" })

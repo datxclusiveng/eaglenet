@@ -5,6 +5,8 @@ import { User } from "../../users/entities/User";
 import { uploadFile, resolveSignatureUrl } from "../../../utils/storage.service";
 import { generateEglId, paginate, parsePagination, sanitizeUser } from "../../../utils/helpers";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
+import { createCashbookEntry } from "../services/cashbook.service";
+import { TransactionNature, EntryType } from "../entities/CashbookEntry";
 
 const repo = () => AppDataSource.getRepository(FinanceVoucher);
 
@@ -158,7 +160,7 @@ export async function getVoucher(req: Request, res: Response) {
     const id = req.params.id as string;
     const voucher = await repo().findOne({
       where: { id },
-      relations: ["staff", "receivedBy", "issuedBy", "authorizedBy", "createdBy"],
+      relations: ["staff", "receivedBy", "issuedBy", "authorizedBy", "createdBy", "paidBy"],
     });
 
     if (!voucher) {
@@ -172,12 +174,16 @@ export async function getVoucher(req: Request, res: Response) {
       receivedBySignatureUrl,
       issuedBySignatureUrl,
       authorizedSignatureUrl,
+      paidBySignatureUrl,
+      paymentEvidenceUrl,
     ] = await Promise.all([
       resolveSignatureUrl(voucher.receiptUrl),
       resolveSignatureUrl(voucher.staffSignatureUrl),
       resolveSignatureUrl(voucher.receivedBySignatureUrl),
       resolveSignatureUrl(voucher.issuedBySignatureUrl),
       resolveSignatureUrl(voucher.authorizedSignatureUrl),
+      resolveSignatureUrl(voucher.paidBySignatureUrl),
+      resolveSignatureUrl(voucher.paymentEvidenceUrl),
     ]);
 
     return res.status(200).json({
@@ -189,11 +195,14 @@ export async function getVoucher(req: Request, res: Response) {
         receivedBySignatureUrl,
         issuedBySignatureUrl,
         authorizedSignatureUrl,
+        paidBySignatureUrl,
+        paymentEvidenceUrl,
         staff: voucher.staff ? sanitizeUser(voucher.staff) : undefined,
         receivedBy: voucher.receivedBy ? sanitizeUser(voucher.receivedBy) : undefined,
         issuedBy: voucher.issuedBy ? sanitizeUser(voucher.issuedBy) : undefined,
         authorizedBy: voucher.authorizedBy ? sanitizeUser(voucher.authorizedBy) : undefined,
         createdBy: voucher.createdBy ? sanitizeUser(voucher.createdBy) : undefined,
+        paidBy: voucher.paidBy ? sanitizeUser(voucher.paidBy) : undefined,
       },
     });
   } catch (err) {
@@ -217,7 +226,7 @@ export async function listVouchers(req: Request, res: Response) {
 
     const [rows, total] = await repo().findAndCount({
       where,
-      relations: ["createdBy", "staff"],
+      relations: ["createdBy", "staff", "paidBy"],
       order: { createdAt: "DESC" },
       skip,
       take: limit,
@@ -231,8 +240,11 @@ export async function listVouchers(req: Request, res: Response) {
         receivedBySignatureUrl: await resolveSignatureUrl(v.receivedBySignatureUrl),
         issuedBySignatureUrl: await resolveSignatureUrl(v.issuedBySignatureUrl),
         authorizedSignatureUrl: await resolveSignatureUrl(v.authorizedSignatureUrl),
+        paidBySignatureUrl: await resolveSignatureUrl(v.paidBySignatureUrl),
+        paymentEvidenceUrl: await resolveSignatureUrl(v.paymentEvidenceUrl),
         createdBy: sanitizeUser(v.createdBy),
         staff: v.staff ? sanitizeUser(v.staff) : undefined,
+        paidBy: v.paidBy ? sanitizeUser(v.paidBy) : undefined,
       }))
     );
 
@@ -263,7 +275,7 @@ export async function listMyVouchers(req: Request, res: Response) {
 
     const [rows, total] = await repo().findAndCount({
       where,
-      relations: ["createdBy", "staff", "authorizedBy"],
+      relations: ["createdBy", "staff", "authorizedBy", "paidBy"],
       order: { createdAt: "DESC" },
       skip,
       take: limit,
@@ -277,9 +289,12 @@ export async function listMyVouchers(req: Request, res: Response) {
         receivedBySignatureUrl: await resolveSignatureUrl(v.receivedBySignatureUrl),
         issuedBySignatureUrl: await resolveSignatureUrl(v.issuedBySignatureUrl),
         authorizedSignatureUrl: await resolveSignatureUrl(v.authorizedSignatureUrl),
+        paidBySignatureUrl: await resolveSignatureUrl(v.paidBySignatureUrl),
+        paymentEvidenceUrl: await resolveSignatureUrl(v.paymentEvidenceUrl),
         createdBy: sanitizeUser(v.createdBy),
         staff: v.staff ? sanitizeUser(v.staff) : undefined,
         authorizedBy: v.authorizedBy ? sanitizeUser(v.authorizedBy) : undefined,
+        paidBy: v.paidBy ? sanitizeUser(v.paidBy) : undefined,
       }))
     );
 
@@ -385,5 +400,142 @@ export async function updateVoucherStatus(req: Request, res: Response) {
   } catch (err) {
     console.error("[VoucherController.updateStatus]", err);
     return res.status(500).json({ status: "error", message: "Error updating voucher status." });
+  }
+}
+
+/**
+ * Mark an approved voucher as paid with evidence of disbursement.
+ * Only vouchers in APPROVED status can be marked as paid.
+ * POST /api/vouchers/:id/pay
+ */
+export async function markVoucherAsPaid(req: Request, res: Response) {
+  try {
+    const id = req.params.id as string;
+    const { paymentMethod, paymentReference, paymentNotes, paidBySignatureUrl } = req.body;
+    const payer = (req as any).user as User;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+    const voucher = await repo().findOne({ where: { id } });
+    if (!voucher) {
+      return res.status(404).json({ status: "error", message: "Voucher not found." });
+    }
+
+    // Guard: only APPROVED vouchers can be marked as paid
+    if (voucher.status !== VoucherStatus.APPROVED) {
+      return res.status(400).json({
+        status: "error",
+        message: `Only approved vouchers can be marked as paid. This voucher is currently ${voucher.status}.`,
+      });
+    }
+
+    // Upload payment evidence file if provided
+    let paymentEvidenceUrl = req.body.paymentEvidenceUrl;
+    if (files?.paymentEvidence?.[0]) {
+      const uploaded = await uploadFile(
+        files.paymentEvidence[0].buffer,
+        files.paymentEvidence[0].originalname,
+        files.paymentEvidence[0].mimetype,
+        "receipts"
+      );
+      paymentEvidenceUrl = uploaded.key;
+    }
+
+    // Handle signature — uploaded file overrides body URL
+    let finalPaidBySignatureUrl = paidBySignatureUrl;
+    if (files?.paidBySignature?.[0]) {
+      const uploaded = await uploadFile(
+        files.paidBySignature[0].buffer,
+        files.paidBySignature[0].originalname,
+        files.paidBySignature[0].mimetype,
+        "signatures"
+      );
+      finalPaidBySignatureUrl = uploaded.key;
+    } else if (payer.signatureUrl) {
+      // Fallback to payer's pre-configured signature
+      finalPaidBySignatureUrl = payer.signatureUrl;
+    }
+
+    // Update voucher with payment information
+    voucher.status = VoucherStatus.PAID;
+    voucher.paidAt = new Date();
+    voucher.paidById = payer.id;
+    voucher.paidBySignatureUrl = finalPaidBySignatureUrl || voucher.paidBySignatureUrl;
+    voucher.paymentEvidenceUrl = paymentEvidenceUrl || voucher.paymentEvidenceUrl;
+    voucher.paymentMethod = paymentMethod;
+    voucher.paymentReference = paymentReference || undefined;
+    voucher.paymentNotes = paymentNotes || undefined;
+
+    await repo().save(voucher);
+
+    // Auto-create a cashbook entry recording the disbursement (CREDIT = money out)
+    const isBankTransfer = paymentMethod?.toLowerCase().includes("bank") || paymentMethod?.toLowerCase().includes("transfer");
+    const nature = isBankTransfer ? TransactionNature.BANK : TransactionNature.CASH;
+
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    createCashbookEntry({
+      date: today,
+      natureOfTransaction: nature,
+      entryType: EntryType.CREDIT, // money has left the account
+      amount: voucher.amount,
+      description: `Payment for voucher ${voucher.voucherNumber} — ${paymentMethod}`,
+      voucherId: voucher.id,
+      createdById: payer.id,
+    }).catch((err) => {
+      console.error("[VoucherController.markPaid] Failed to create cashbook entry:", err);
+    });
+
+    // Audit Log
+    createAuditLog({
+      entityType: "FinanceVoucher",
+      entityId: voucher.id,
+      action: AuditAction.VOUCHER_PAID,
+      actionDetails: {
+        event: "voucher_paid",
+        voucherNumber: voucher.voucherNumber,
+        amount: voucher.amount,
+        paymentMethod,
+        paymentReference,
+      },
+      performedBy: payer.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    // Resolve stored keys to presigned URLs for the response
+    const [
+      resolvedReceiptUrl,
+      resolvedStaffSignatureUrl,
+      resolvedReceivedBySignatureUrl,
+      resolvedIssuedBySignatureUrl,
+      resolvedAuthorizedSignatureUrl,
+      resolvedPaidBySignatureUrl,
+      resolvedPaymentEvidenceUrl,
+    ] = await Promise.all([
+      resolveSignatureUrl(voucher.receiptUrl),
+      resolveSignatureUrl(voucher.staffSignatureUrl),
+      resolveSignatureUrl(voucher.receivedBySignatureUrl),
+      resolveSignatureUrl(voucher.issuedBySignatureUrl),
+      resolveSignatureUrl(voucher.authorizedSignatureUrl),
+      resolveSignatureUrl(voucher.paidBySignatureUrl),
+      resolveSignatureUrl(voucher.paymentEvidenceUrl),
+    ]);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Voucher marked as paid successfully.",
+      data: {
+        ...voucher,
+        receiptUrl: resolvedReceiptUrl,
+        staffSignatureUrl: resolvedStaffSignatureUrl,
+        receivedBySignatureUrl: resolvedReceivedBySignatureUrl,
+        issuedBySignatureUrl: resolvedIssuedBySignatureUrl,
+        authorizedSignatureUrl: resolvedAuthorizedSignatureUrl,
+        paidBySignatureUrl: resolvedPaidBySignatureUrl,
+        paymentEvidenceUrl: resolvedPaymentEvidenceUrl,
+      },
+    });
+  } catch (err) {
+    console.error("[VoucherController.markPaid]", err);
+    return res.status(500).json({ status: "error", message: "Error marking voucher as paid." });
   }
 }

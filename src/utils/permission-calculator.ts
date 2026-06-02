@@ -95,6 +95,7 @@ export const ALL_KNOWN_PERMISSIONS: Array<{ resource: string; action: string }> 
   { resource: "voucher", action: "delete" },
   { resource: "voucher", action: "verify" },
   { resource: "voucher", action: "approve" },
+  { resource: "voucher", action: "pay" },
   // cashbook
   { resource: "cashbook", action: "create" },
   { resource: "cashbook", action: "read" },

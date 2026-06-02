@@ -5,6 +5,7 @@ import {
   listVouchers,
   listMyVouchers,
   updateVoucherStatus,
+  markVoucherAsPaid,
 } from "../controllers/voucher.controller";
 import { auth } from "../../../middleware/auth.middleware";
 import { authorize } from "../../../middleware/authorize.middleware";
@@ -13,6 +14,7 @@ import { uploadMiddleware, validateFileContent } from "../../../middleware/uploa
 import {
   createVoucherSchema,
   updateVoucherStatusSchema,
+  markVoucherAsPaidSchema,
   uuidParamSchema,
 } from "../../../utils/validators";
 
@@ -85,6 +87,26 @@ router.patch(
   validateFileContent,
   validate(updateVoucherStatusSchema),
   updateVoucherStatus
+);
+
+// Dedicated upload fields for marking a voucher as paid
+const payVoucherUploads = uploadMiddleware.fields([
+  { name: "paymentEvidence", maxCount: 1 },
+  { name: "paidBySignature", maxCount: 1 },
+]);
+
+/**
+ * Mark an approved voucher as paid with evidence of disbursement
+ * PATCH /api/vouchers/:id/pay
+ */
+router.patch(
+  "/:id/pay",
+  ...auth,
+  authorize("voucher", "pay"),
+  payVoucherUploads,
+  validateFileContent,
+  validate(markVoucherAsPaidSchema),
+  markVoucherAsPaid
 );
 
 export default router;

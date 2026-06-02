@@ -328,6 +328,19 @@ export const updateVoucherStatusSchema = z.object({
   })
 });
 
+export const markVoucherAsPaidSchema = z.object({
+  body: z.object({
+    paymentMethod: z.string().min(1, "Payment method is required"),
+    paymentReference: z.string().optional(),
+    paymentNotes: z.string().optional(),
+    paymentEvidenceUrl: z.string().optional(),
+    paidBySignatureUrl: z.string().optional(),
+  }),
+  params: z.object({
+    id: z.string().uuid("Invalid Voucher ID format."),
+  }),
+});
+
 export const createCashbookEntrySchema = z.object({
   body: z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),

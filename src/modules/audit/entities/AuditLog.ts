@@ -31,6 +31,7 @@ export enum AuditAction {
   // Financial
   PAYMENT_CREATED = "payment_created",
   PAYMENT_UPDATED = "payment_updated",
+  VOUCHER_PAID = "voucher_paid",
   // Messaging
   SEND = "send",
 }

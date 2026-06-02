@@ -8,7 +8,7 @@ const resources = {
   invoice: ["create", "read", "update", "delete", "verify", "approve", "reconcile", "submit"],
   "bank-account": ["create", "read", "update", "delete"],
   payment: ["create", "read", "update", "delete", "process"],
-  voucher: ["create", "read", "update", "delete", "verify", "approve"],
+  voucher: ["create", "read", "update", "delete", "verify", "approve", "pay"],
   cashbook: ["create", "read", "update", "delete"],
   ledger: ["create", "read", "update", "delete"],
   document: ["create", "read", "update", "delete", "verify"],
