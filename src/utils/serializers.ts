@@ -5,6 +5,7 @@
 
 import { User } from "../modules/users/entities/User";
 import { Shipment } from "../modules/shipments/entities/Shipment";
+import { resolveSignatureUrl } from "./storage.service";
 
 /**
  * Sanitize user object for API responses
@@ -24,6 +25,18 @@ export function serializeUser(user: User | any): any {
   } = user;
 
   return safe;
+}
+
+/**
+ * Sanitize user AND resolve signature URLs to presigned links.
+ * Use this when returning a user object to the client.
+ */
+export async function serializeUserWithSignatures(user: User | any): Promise<any> {
+  const serialized = serializeUser(user);
+  if (serialized.signatureUrl) {
+    serialized.signatureUrl = await resolveSignatureUrl(serialized.signatureUrl);
+  }
+  return serialized;
 }
 
 /**

@@ -10,7 +10,7 @@ import { Payment } from "../../financial/entities/Payment";
 import { AuditLog } from "../../audit/entities/AuditLog";
 import { parsePagination, paginate } from "../../../utils/helpers";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
-import { serializeUser } from "../../../utils/serializers";
+import { serializeUser, serializeUserWithSignatures } from "../../../utils/serializers";
 import { invalidatePermissionCache } from "../../../utils/cache";
 import crypto from "crypto";
 import { getOnlineUserIds } from "../../../socket";
@@ -389,7 +389,8 @@ export async function listUsers(req: Request, res: Response) {
     qb.orderBy("u.createdAt", "DESC").skip(skip).take(limit);
     const [users, total] = await qb.getManyAndCount();
 
-    return (res as any).success(users.map(serializeUser), undefined, paginate(total, page, limit));
+    const serializedUsers = await Promise.all(users.map(u => serializeUserWithSignatures(u)));
+    return (res as any).success(serializedUsers, undefined, paginate(total, page, limit));
   } catch (err) {
     console.error("[UserController.listUsers]", err);
     return res
@@ -491,7 +492,7 @@ export async function getUser(req: Request, res: Response) {
     ]);
 
     return (res as any).success({
-      ...serializeUser(user),
+      ...(await serializeUserWithSignatures(user)),
       stats: {
         assignedShipments,
         totalProcessed: Number(totalSpentResult?.total || 0),
@@ -529,7 +530,7 @@ export async function myDashboard(req: Request, res: Response) {
     ]);
 
     return (res as any).success({
-      user: serializeUser(user),
+      user: await serializeUserWithSignatures(user),
       assignedShipments,
       totalProcessed: Number(totalPaid?.total || 0),
     });
@@ -617,7 +618,7 @@ export async function getOnlineUsers(_req: Request, res: Response) {
   }
 }
 
-import { uploadFile } from "../../../utils/storage.service";
+import { uploadFile, getPresignedDownloadUrl } from "../../../utils/storage.service";
 
 /**
  * PATCH /api/users/me/signature
@@ -640,19 +641,22 @@ export async function uploadSignature(req: Request, res: Response) {
     );
 
     const repo = userRepo();
-    await repo.update(user.id, { signatureUrl: uploaded.url });
+    // Store the object key so we can generate presigned URLs on read
+    await repo.update(user.id, { signatureUrl: uploaded.key });
+
+    const presignedUrl = await getPresignedDownloadUrl(uploaded.key);
 
     createAuditLog({
       entityType: "User",
       entityId: user.id,
       action: AuditAction.UPDATE,
-      actionDetails: { field: "signatureUrl", url: uploaded.url },
+      actionDetails: { field: "signatureUrl", key: uploaded.key },
       performedBy: user.id,
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
 
-    return (res as any).success({ signatureUrl: uploaded.url }, "Signature uploaded successfully.");
+    return (res as any).success({ signatureUrl: presignedUrl }, "Signature uploaded successfully.");
   } catch (err) {
     console.error("[UserController.uploadSignature]", err);
     return res.status(500).json({ status: "error", message: "Failed to upload signature." });

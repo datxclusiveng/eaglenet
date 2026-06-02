@@ -125,6 +125,25 @@ export async function getPresignedDownloadUrl(
 }
 
 /**
+ * Resolves a stored signature reference to a presigned (or local) URL.
+ *
+ * - If the value is null/undefined, returns null.
+ * - If the value already looks like an HTTP URL (legacy data), returns it as-is.
+ * - Otherwise treats the value as a B2 object key and generates a short-lived
+ *   presigned download URL.
+ *
+ * @param value  The stored column value — a key (new) or full URL (legacy).
+ */
+export async function resolveSignatureUrl(
+  value: string | null | undefined
+): Promise<string | null> {
+  if (!value) return null;
+  // Legacy: already a full public URL — pass through unchanged
+  if (value.startsWith("http")) return value;
+  return getPresignedDownloadUrl(value);
+}
+
+/**
  * Permanently deletes an object from Backblaze B2 (or local disk).
  * Called when a document is hard-deleted from the system.
  *

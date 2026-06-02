@@ -7,7 +7,7 @@ import { User, UserRole } from "../../users/entities/User";
 import { UserDepartmentRole } from "../../users/entities/UserDepartmentRole";
 import { PasswordReset } from "../entities/PasswordReset";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
-import { serializeUser } from "../../../utils/serializers";
+import { serializeUserWithSignatures } from "../../../utils/serializers";
 import { computePermissionMap, PermissionMap } from "../../../utils/permission-calculator";
 import { appCache } from "../../../utils/cache";
 import * as EmailService from "../../notifications/services/email.service";
@@ -120,7 +120,7 @@ export async function register(req: Request, res: Response) {
     return (res as any).status(201).success(
       {
         ...tokens,
-        user: serializeUser(user),
+        user: await serializeUserWithSignatures(user),
         permissions,
       },
       "Registration successful."
@@ -200,7 +200,7 @@ export async function login(req: Request, res: Response) {
     return (res as any).success(
       {
         ...tokens,
-        user: serializeUser(user),
+        user: await serializeUserWithSignatures(user),
         permissions,
       },
       "Login successful."
@@ -220,7 +220,7 @@ export async function me(req: Request, res: Response) {
     const user = (req as any).user as User;
     const permissions = await getUserPermissions(user);
     return (res as any).success({
-      user: serializeUser(user),
+      user: await serializeUserWithSignatures(user),
       permissions,
     });
   } catch (err) {

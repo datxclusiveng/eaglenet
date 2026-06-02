@@ -22,7 +22,7 @@ import { NotificationType } from "../../notifications/entities/Notification";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 import { emitShipmentUpdate } from "../../../socket";
 import { generateTrackingNumber } from "../utils/generators";
-import { uploadFile } from "../../../utils/storage.service";
+import { uploadFile, resolveSignatureUrl } from "../../../utils/storage.service";
 import { MoreThanOrEqual } from "typeorm";
 
 const repo = () => AppDataSource.getRepository(Shipment);
@@ -684,13 +684,13 @@ export async function uploadDeliveryProof(req: Request, res: Response) {
     if (files?.signature && files.signature.length > 0) {
       const sigFile = files.signature[0];
       const uploaded = await uploadFile(sigFile.buffer, sigFile.originalname, sigFile.mimetype, "delivery-proofs");
-      signatureUrl = uploaded.url;
+      signatureUrl = uploaded.key;
     }
 
     if (files?.photo && files.photo.length > 0) {
       const photoFile = files.photo[0];
       const uploaded = await uploadFile(photoFile.buffer, photoFile.originalname, photoFile.mimetype, "delivery-proofs");
-      photoUrl = uploaded.url;
+      photoUrl = uploaded.key;
     }
 
     const note = `Delivery proof uploaded. Recipient: ${recipientName || 'Not specified'}. Notes: ${deliveryNotes || 'None'}`;
@@ -844,8 +844,8 @@ export async function getDeliveryNote(req: Request, res: Response) {
       deliveryProof: {
         recipientName: deliveryProofLog.metadata?.recipientName,
         deliveryNotes: deliveryProofLog.metadata?.deliveryNotes,
-        signatureUrl: deliveryProofLog.metadata?.signatureUrl,
-        photoUrl: deliveryProofLog.metadata?.photoUrl,
+        signatureUrl: await resolveSignatureUrl(deliveryProofLog.metadata?.signatureUrl),
+        photoUrl: await resolveSignatureUrl(deliveryProofLog.metadata?.photoUrl),
         uploadedAt: deliveryProofLog.createdAt,
       },
       department: {

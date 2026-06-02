@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../../../../database/data-source";
 import { FinanceVoucher, VoucherStatus } from "../entities/FinanceVoucher";
 import { User } from "../../users/entities/User";
-import { uploadFile } from "../../../utils/storage.service";
+import { uploadFile, resolveSignatureUrl } from "../../../utils/storage.service";
 import { generateEglId, paginate, parsePagination, sanitizeUser } from "../../../utils/helpers";
 import { createAuditLog, AuditAction } from "../../audit/services/audit.service";
 
@@ -27,7 +27,7 @@ export async function createVoucher(req: Request, res: Response) {
         files.receipt[0].mimetype,
         "receipts"
       );
-      receiptUrl = uploaded.url;
+      receiptUrl = uploaded.key;
     }
 
     let staffSignatureUrl = body.staffSignatureUrl;
@@ -38,7 +38,7 @@ export async function createVoucher(req: Request, res: Response) {
         files.staffSignature[0].mimetype,
         "signatures"
       );
-      staffSignatureUrl = uploaded.url;
+      staffSignatureUrl = uploaded.key;
     } else if (body.staffId) {
       // Fallback to staff's pre-configured signature if available
       const staffUser = await AppDataSource.getRepository(User).findOne({ where: { id: body.staffId } });
@@ -60,7 +60,7 @@ export async function createVoucher(req: Request, res: Response) {
         files.receivedBySignature[0].mimetype,
         "signatures"
       );
-      receivedBySignatureUrl = uploaded.url;
+      receivedBySignatureUrl = uploaded.key;
     } else if (body.receivedById) {
       const recUser = await AppDataSource.getRepository(User).findOne({ where: { id: body.receivedById } });
       if (recUser?.signatureUrl) {
@@ -76,7 +76,7 @@ export async function createVoucher(req: Request, res: Response) {
         files.issuedBySignature[0].mimetype,
         "signatures"
       );
-      issuedBySignatureUrl = uploaded.url;
+      issuedBySignatureUrl = uploaded.key;
     } else if (body.issuedById) {
       const issUser = await AppDataSource.getRepository(User).findOne({ where: { id: body.issuedById } });
       if (issUser?.signatureUrl) {
@@ -165,10 +165,30 @@ export async function getVoucher(req: Request, res: Response) {
       return res.status(404).json({ status: "error", message: "Voucher not found." });
     }
 
+    // Resolve stored keys to presigned URLs for all signature/receipt fields
+    const [
+      receiptUrl,
+      staffSignatureUrl,
+      receivedBySignatureUrl,
+      issuedBySignatureUrl,
+      authorizedSignatureUrl,
+    ] = await Promise.all([
+      resolveSignatureUrl(voucher.receiptUrl),
+      resolveSignatureUrl(voucher.staffSignatureUrl),
+      resolveSignatureUrl(voucher.receivedBySignatureUrl),
+      resolveSignatureUrl(voucher.issuedBySignatureUrl),
+      resolveSignatureUrl(voucher.authorizedSignatureUrl),
+    ]);
+
     return res.status(200).json({
       status: "success",
       data: {
         ...voucher,
+        receiptUrl,
+        staffSignatureUrl,
+        receivedBySignatureUrl,
+        issuedBySignatureUrl,
+        authorizedSignatureUrl,
         staff: voucher.staff ? sanitizeUser(voucher.staff) : undefined,
         receivedBy: voucher.receivedBy ? sanitizeUser(voucher.receivedBy) : undefined,
         issuedBy: voucher.issuedBy ? sanitizeUser(voucher.issuedBy) : undefined,
@@ -203,11 +223,18 @@ export async function listVouchers(req: Request, res: Response) {
       take: limit,
     });
 
-    const sanitizedRows = rows.map((v) => ({
-      ...v,
-      createdBy: sanitizeUser(v.createdBy),
-      staff: v.staff ? sanitizeUser(v.staff) : undefined,
-    }));
+    const sanitizedRows = await Promise.all(
+      rows.map(async (v) => ({
+        ...v,
+        receiptUrl: await resolveSignatureUrl(v.receiptUrl),
+        staffSignatureUrl: await resolveSignatureUrl(v.staffSignatureUrl),
+        receivedBySignatureUrl: await resolveSignatureUrl(v.receivedBySignatureUrl),
+        issuedBySignatureUrl: await resolveSignatureUrl(v.issuedBySignatureUrl),
+        authorizedSignatureUrl: await resolveSignatureUrl(v.authorizedSignatureUrl),
+        createdBy: sanitizeUser(v.createdBy),
+        staff: v.staff ? sanitizeUser(v.staff) : undefined,
+      }))
+    );
 
     return res.status(200).json({
       status: "success",
@@ -242,12 +269,19 @@ export async function listMyVouchers(req: Request, res: Response) {
       take: limit,
     });
 
-    const sanitizedRows = rows.map((v) => ({
-      ...v,
-      createdBy: sanitizeUser(v.createdBy),
-      staff: v.staff ? sanitizeUser(v.staff) : undefined,
-      authorizedBy: v.authorizedBy ? sanitizeUser(v.authorizedBy) : undefined,
-    }));
+    const sanitizedRows = await Promise.all(
+      rows.map(async (v) => ({
+        ...v,
+        receiptUrl: await resolveSignatureUrl(v.receiptUrl),
+        staffSignatureUrl: await resolveSignatureUrl(v.staffSignatureUrl),
+        receivedBySignatureUrl: await resolveSignatureUrl(v.receivedBySignatureUrl),
+        issuedBySignatureUrl: await resolveSignatureUrl(v.issuedBySignatureUrl),
+        authorizedSignatureUrl: await resolveSignatureUrl(v.authorizedSignatureUrl),
+        createdBy: sanitizeUser(v.createdBy),
+        staff: v.staff ? sanitizeUser(v.staff) : undefined,
+        authorizedBy: v.authorizedBy ? sanitizeUser(v.authorizedBy) : undefined,
+      }))
+    );
 
     return res.status(200).json({
       status: "success",
@@ -291,7 +325,7 @@ export async function updateVoucherStatus(req: Request, res: Response) {
         files.authorizedSignature[0].mimetype,
         "signatures"
       );
-      finalAuthorizedSignatureUrl = uploaded.url;
+      finalAuthorizedSignatureUrl = uploaded.key;
     } else {
       // Fallback to preconfigured signature of the authorizing manager/admin
       if (authorizer.signatureUrl) {
@@ -321,10 +355,32 @@ export async function updateVoucherStatus(req: Request, res: Response) {
       userAgent: req.headers["user-agent"],
     });
 
+    // Resolve stored keys to presigned URLs for response
+    const [
+      resolvedReceiptUrl,
+      resolvedStaffSignatureUrl,
+      resolvedReceivedBySignatureUrl,
+      resolvedIssuedBySignatureUrl,
+      resolvedAuthorizedSignatureUrl,
+    ] = await Promise.all([
+      resolveSignatureUrl(voucher.receiptUrl),
+      resolveSignatureUrl(voucher.staffSignatureUrl),
+      resolveSignatureUrl(voucher.receivedBySignatureUrl),
+      resolveSignatureUrl(voucher.issuedBySignatureUrl),
+      resolveSignatureUrl(voucher.authorizedSignatureUrl),
+    ]);
+
     return res.status(200).json({
       status: "success",
       message: `Voucher ${status.toLowerCase()} successfully.`,
-      data: voucher,
+      data: {
+        ...voucher,
+        receiptUrl: resolvedReceiptUrl,
+        staffSignatureUrl: resolvedStaffSignatureUrl,
+        receivedBySignatureUrl: resolvedReceivedBySignatureUrl,
+        issuedBySignatureUrl: resolvedIssuedBySignatureUrl,
+        authorizedSignatureUrl: resolvedAuthorizedSignatureUrl,
+      },
     });
   } catch (err) {
     console.error("[VoucherController.updateStatus]", err);
