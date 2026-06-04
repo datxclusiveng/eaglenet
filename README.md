@@ -301,6 +301,96 @@ Permission caches are invalidated automatically when:
 | Reports | `/api/reports` | Reporting and analytics |
 | Customers | `/api/customers` | Customer records |
 | Admin | `/api/admin` | Admin dashboard + analytics |
+| **Public Track** | `/api/track` | **No auth** — customer parcel lookup |
+
+---
+
+## Public Tracking (Customer Parcel Lookup)
+
+The `/api/track` endpoint is **public** — no authentication required. Customers can look up their shipment status using their tracking number or search for all shipments linked to their email address.
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/track?trackingNumber=EGL-EXP-240001` | — | Full tracking detail for a single shipment |
+| `GET` | `/api/track?email=customer@example.com` | — | Summary list of shipments for that customer |
+
+Provide **exactly one** query parameter per request.
+
+### Rate Limiting
+
+30 requests per 15 minutes per IP address. Exceeding this returns `429 Too Many Requests`.
+
+### Single Shipment Response (`?trackingNumber=`)
+
+Returns detailed public-safe information about one shipment:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "trackingNumber": "EGL-EXP-240001",
+    "shipmentName": "Medical Supplies to Kenya",
+    "type": "export",
+    "status": "in_transit",
+    "origin": { "city": "Lagos", "country": "Nigeria" },
+    "destination": { "city": "Nairobi", "country": "Kenya" },
+    "weightKg": 250.5,
+    "volumeCbm": 2.3,
+    "description": "Urgent medical supplies",
+    "clientName": "Nairobi Health Ltd",
+    "trackingUpdates": [
+      { "checkpoint": "Departed Origin", "location": "Lagos, Nigeria", "status": "in_transit", "date": "2026-05-20T10:00:00Z" }
+    ],
+    "customsStatus": "released",
+    "publicLogs": [
+      { "status": "in_transit", "date": "2026-05-20T10:00:00Z", "note": "Departed Lagos airport" }
+    ]
+  }
+}
+```
+
+### Email Search Response (`?email=`)
+
+Returns a summary list (up to 50 most recent shipments):
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "trackingNumber": "EGL-EXP-240001",
+      "shipmentName": "Medical Supplies to Kenya",
+      "status": "in_transit",
+      "type": "export",
+      "origin": { "city": "Lagos", "country": "Nigeria" },
+      "destination": { "city": "Nairobi", "country": "Kenya" }
+    }
+  ],
+  "meta": { "count": 1 }
+}
+```
+
+### What Is NOT Exposed
+
+This endpoint deliberately excludes all sensitive/internal fields:
+- No staff names, IDs, or assigned officer
+- No department or collaborator info
+- No financial data (invoice IDs, payment info, amounts)
+- No document URLs or file keys
+- No full street addresses (city + country only)
+- No client email or phone
+- No workflow steps, internal notes, or customs remarks
+- No carrier/airline details
+
+### Error Responses
+
+| Status | Condition |
+|--------|-----------|
+| `400` | Missing or invalid query params (must provide exactly one of `trackingNumber` or `email`) |
+| `404` | No shipment found with that tracking number |
+| `429` | Rate limit exceeded |
 
 ---
 

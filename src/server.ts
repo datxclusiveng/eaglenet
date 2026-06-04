@@ -42,6 +42,7 @@ import voucherRoutes from "./modules/financial/routes/voucher.routes";
 import cashbookRoutes from "./modules/financial/routes/cashbook.routes";
 import ledgerRoutes from "./modules/financial/routes/ledger.routes";
 import warehouseRoutes from "./modules/warehouse/routes/warehouse.routes";
+import publicRoutes from "./modules/public/routes/public.routes";
 
 // Load environment variables
 dotenv.config();
@@ -116,6 +117,15 @@ const publicFileLimiter = rateLimit({
 app.use("/public", publicFileLimiter);
 app.use("/api/public", publicFileLimiter);
 
+// Public tracking limiter (customers looking up their parcels)
+const trackingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: "Too many tracking requests, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(hpp() as any);
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
@@ -146,6 +156,9 @@ app.use((req, res, next) => {
 //       We mount the webhook first, then apply json().
 app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 app.use(express.json({ limit: "10kb" }));
+
+// ─── PUBLIC TRACKING (no auth) ──────────────────────────────────────────────────
+app.use("/api/track", trackingLimiter, publicRoutes);
 
 // ─── STATIC ───────────────────────────────────────────────────────────────────
 app.use("/public", express.static(path.join(process.cwd(), "public")));

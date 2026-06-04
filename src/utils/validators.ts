@@ -508,3 +508,15 @@ export const updateLedgerEntrySchema = z.object({
     id: z.string().uuid("Invalid ledger entry ID"),
   }),
 });
+
+// ─── Public Tracking Schemas ────────────────────────────────────────────────────
+
+export const publicTrackingSchema = z.object({
+  query: z.object({
+    trackingNumber: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+  }).refine(
+    (data) => (data.trackingNumber && !data.email) || (!data.trackingNumber && data.email),
+    { message: "Provide exactly one of: trackingNumber or email" }
+  ),
+});
