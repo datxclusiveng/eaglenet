@@ -51,6 +51,7 @@ const STAFF_FAST_PATH: Array<{ resource: string; action: string }> = [
   { resource: "invoice", action: "read" },
   { resource: "payment", action: "create" },
   { resource: "payment", action: "read" },
+  { resource: "cashbook", action: "read" },
   { resource: "search", action: "read" },
 ];
 

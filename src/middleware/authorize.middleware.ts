@@ -33,6 +33,7 @@ export function authorize(resource: string, action: string) {
           { resource: "invoice", action: "read" },
           { resource: "payment", action: "create" },
           { resource: "payment", action: "read" },
+          { resource: "cashbook", action: "read" },
           { resource: "search", action: "read" }
         ];
         isFastPathAllowed = allowed.some(r => r.resource === resource && r.action === action);
